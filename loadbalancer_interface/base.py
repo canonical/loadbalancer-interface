@@ -1,6 +1,8 @@
 import weakref
 from operator import attrgetter
 
+from cached_property import cached_property
+
 from ops.framework import (
     Object,
 )
@@ -46,17 +48,28 @@ class LBBase(Object):
 
         # Future-proof against the need to evolve the relation protocol
         # by ensuring that we agree on a version number before starting.
-        # This may be made moot by a future feature in Juju.
-        self.relations = []
-        for relation in sorted(self.model.relations[self.relation_name],
-                               key=attrgetter('id')):
-            relation.data[self.app]['version'] = VERSION
-            if relation.data.get(relation.app, {}).get('version') == VERSION:
-                self.relations.append(relation)
+        # This may or may not be made moot by a future feature in Juju.
+        for event in (charm.on[relation_name].relation_created,
+                      charm.on.leader_elected,
+                      charm.on.upgrade_charm):
+            self.framework.observe(event, self._set_version)
 
-    @property
-    def hash(self):
-        raise NotImplementedError()
+    def _set_version(self, event):
+        if self.unit.is_leader():
+            if hasattr(event, 'relation'):
+                relations = [event.relation]
+            else:
+                relations = self.model.relations.get(self.relation_name, [])
+            for relation in relations:
+                relation.data[self.app]['version'] = str(VERSION)
+
+    @cached_property
+    def relations(self):
+        relations = self.model.relations.get(self.relation_name, [])
+        return [relation
+                for relation in sorted(relations, key=attrgetter('id'))
+                if VERSION == relation.data.get(relation.app,
+                                                {}).get('version')]
 
     @property
     def is_changed(self):
@@ -77,4 +90,4 @@ class LBBase(Object):
 
     @property
     def unit(self):
-        return self.charm.app
+        return self.charm.unit

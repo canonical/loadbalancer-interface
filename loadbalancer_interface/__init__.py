@@ -1,2 +1,2 @@
-from .producer import LBProducer  # noqa
-from .consumer import LBConsumer  # noqa
+from .provider import LBProvider  # noqa
+from .consumer import LBConsumers  # noqa

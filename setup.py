@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 SETUP = {
-    "name": "loadbalancer-interface",
+    "name": "loadbalancer_interface",
     "version": "1.0.0",
     "author": "Cory Johns",
     "author_email": "cory.johns@canonical.com",
@@ -10,6 +10,7 @@ SETUP = {
     "py_modules": ["loadbalancer_interface"],
     "install_requires": [
         "ops>=1.0.0",
+        "cached_property",
     ],
     # TODO: move this to normal PyPI dependency when ready
     "dependency_links": [
