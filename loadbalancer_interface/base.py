@@ -1,5 +1,6 @@
 import weakref
 from operator import attrgetter
+from typing import Iterable, Sequence, Union
 
 from cached_property import cached_property
 
@@ -9,21 +10,6 @@ from ops.framework import (
 
 
 VERSION = '1'
-
-
-class Request:
-    @classmethod
-    def get_all(cls, app, relation):
-        raise NotImplementedError()
-
-    def __init__(self, app, relation):
-        self.app = app
-        self.relation = relation
-        self.response = None
-
-    @property
-    def hash(self):
-        raise NotImplementedError()
 
 
 class Response:
@@ -36,6 +22,67 @@ class Response:
 
     @property
     def hash(self):
+        raise NotImplementedError()
+
+
+class HealthCheck:
+    def __init__(self,
+                 traffic_type: str,
+                 port: int,
+                 path: str = None,
+                 interval: int = 30,
+                 retries: int = 3):
+        self.traffic_type = traffic_type
+        self.port = port
+        self.path = path
+        self.interval = interval
+        self.retries = retries
+
+
+class Request:
+    @classmethod
+    def get_all(cls, app, relation):
+        raise NotImplementedError()
+
+    def __init__(self,
+                 app,
+                 relation,
+                 *,
+                 traffic_type: str,
+                 backends: Iterable[str] = None,
+                 backend_port: Union[int, Iterable[int]],
+                 algorithm: Sequence[str] = None,
+                 sticky: bool = False,
+                 health_checks: Iterable[HealthCheck] = None,
+                 public: bool = True,
+                 tls_termination: bool = False,
+                 tls_cert: str = None,
+                 tls_key: str = None,
+                 ingress_address: str = None,
+                 ingress_port: Union[int, Iterable[int]] = None,
+                 response: Response = None,
+                 ):
+        self.app = app
+        self.relation = relation
+        self.traffic_type = traffic_type
+        self.backends = backends
+        self.backend_port = backend_port
+        self.algorithm = algorithm
+        self.sticky = sticky
+        self.health_checks = health_checks
+        self.public = public
+        self.tls_termination = tls_termination
+        self.tls_cert = tls_cert
+        self.tls_key = tls_key
+        self.ingress_address = ingress_address
+        self.ingress_port = ingress_port
+        self.response = response
+
+    @property
+    def hash(self):
+        raise NotImplementedError()
+
+    def write(self):
         raise NotImplementedError()
 
 

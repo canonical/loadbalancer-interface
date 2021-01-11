@@ -1,60 +1,72 @@
 from ops.charm import CharmBase
+from ops.model import Unit
 from ops.testing import Harness
 
 from loadbalancer_interface import LBProvider, LBConsumers
 
 
 def test_interface():
-    provider = Harness(ProviderCharm, meta=ProviderCharm.meta)
-    consumer = Harness(ConsumerCharm, meta=ConsumerCharm.meta)
+    provider = Harness(ProviderCharm, meta=ProviderCharm._meta)
+    consumer = Harness(ConsumerCharm, meta=ConsumerCharm._meta)
     provider.begin()
     consumer.begin()
 
-    pcharm = provider.charm
-    papp = pcharm.app
-    punit = provider.charm.unit
-    prid = None
-    ccharm = consumer.charm
-    capp = ccharm.app
-    cunit = ccharm.unit
-    crid = None
+    def get_rel_data(harness, rid, src):
+        return harness.get_relation_data(rid, src)
 
-    def prd(src):
-        return provider.get_relation_data(prid, src.name)
+    def update_rel_data(harness, rid, src_data_map):
+        for src, data in src_data_map.items():
+            harness.update_relation_data(rid, src, data)
 
-    def crd(src):
-        return consumer.get_relation_data(crid, src.name)
+    def next_unit(unit):
+        name, num = unit.name.split('/')
+        num = str(int(num) + 1)
+        return Unit('/'.join((name, num)), unit._backend, unit._cache)
 
-    assert not punit.is_leader()
-    prid = provider.add_relation('clients', capp.name)
-    assert not prd(papp)
+    p_charm = provider.charm
+    p_app = p_charm.app
+    c_charm = consumer.charm
+    c_app = c_charm.app
+    c_unit0 = consumer.charm.unit
+    c_unit1 = next_unit(consumer.charm.unit)
+
+    p_rid = provider.add_relation('clients', c_charm.meta.name)
+    c_rid = consumer.add_relation('loadbalancer', p_charm.meta.name)
+
+    assert not get_rel_data(provider, p_rid, p_app.name)
     provider.set_leader(True)
-    assert prd(papp) == {'version': '1'}
+    assert get_rel_data(provider, p_rid, p_app.name) == {'version': '1'}
 
-    provider.add_relation_unit(prid, cunit.name)
-    provider.update_relation_data(prid, cunit.name, {
-        'ingress-address': '192.168.0.1',
+    provider.add_relation_unit(p_rid, c_unit0.name)
+    provider.add_relation_unit(p_rid, c_unit1.name)
+    update_rel_data(provider, p_rid, {
+        c_unit0.name: {'ingress-address': '192.168.0.1'},
+        c_unit1.name: {'ingress-address': '192.168.0.2'},
     })
-    assert not pcharm.clients.relations  # still waiting on remote version
+    assert not p_charm.clients.relations  # still waiting on remote version
 
     consumer.set_leader(True)
-    crid = consumer.add_relation('loadbalancer', capp.name)
-    assert crd(capp) == {'version': '1'}
+    assert get_rel_data(consumer, c_rid, c_app.name) == {'version': '1'}
 
-    provider.update_relation_data(prid, capp.name, crd(capp))
-    assert pcharm.clients.relations  # should now see the relation
+    update_rel_data(provider, p_rid, {
+        c_app.name: get_rel_data(consumer, c_rid, c_app.name),
+    })
+    assert p_charm.clients.relations  # should now see the relation
 
-    assert not pcharm.clients.is_changed
+    assert not p_charm.clients.is_changed
     # XXX not yet implemented, so assert below will fail
-    ccharm.loadbalancer.request('foo',
-                                traffic_type='tcp',
-                                backend_port=80)
-    provider.update_relation_data(prid, capp.name, crd(capp))
-    assert pcharm.clients.is_changed
+    c_charm.loadbalancer.request('foo',
+                                 traffic_type='tcp',
+                                 backend_port=80,
+                                 )
+    update_rel_data(provider, p_rid, {
+        c_app.name: get_rel_data(consumer, c_rid, c_app.name),
+    })
+    assert p_charm.clients.is_changed
 
 
 class ProviderCharm(CharmBase):
-    meta = """
+    _meta = """
         name: provider
         provides:
           clients:
@@ -67,7 +79,7 @@ class ProviderCharm(CharmBase):
 
 
 class ConsumerCharm(CharmBase):
-    meta = """
+    _meta = """
         name: consumer
         requires:
           loadbalancer:
