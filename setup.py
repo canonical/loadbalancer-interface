@@ -11,6 +11,7 @@ SETUP = {
     "install_requires": [
         "ops>=1.0.0",
         "cached_property",
+        "marshmallow",
     ],
     # TODO: move this to normal PyPI dependency when ready
     "dependency_links": [

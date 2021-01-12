@@ -1,8 +1,10 @@
+import json
 import weakref
+from hashlib import md5
 from operator import attrgetter
-from typing import Iterable, Sequence, Union
 
 from cached_property import cached_property
+from marshmallow import Schema, fields
 
 from ops.framework import (
     Object,
@@ -26,64 +28,79 @@ class Response:
 
 
 class HealthCheck:
-    def __init__(self,
-                 traffic_type: str,
-                 port: int,
-                 path: str = None,
-                 interval: int = 30,
-                 retries: int = 3):
-        self.traffic_type = traffic_type
-        self.port = port
-        self.path = path
-        self.interval = interval
-        self.retries = retries
+    class _Schema(Schema):
+        traffic_type = fields.Str(required=True)
+        port = fields.Int(required=True)
+        path = fields.Str(missing=None)
+        interval = fields.Int(missing=30)
+        retries = fields.Int(missing=3)
+
+    def __init__(self, **kwargs):
+        self._schema = self._Schema()
+        for field, value in self._schema.load(kwargs).items():
+            setattr(self, field, value)
+
+
+class HealthCheckField(fields.Field):
+    def _serialize(self, value, attr, obj, **kwargs):
+        return value._schema.dump(value)
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if isinstance(value, HealthCheck):
+            return value
+        return HealthCheck(**value)
 
 
 class Request:
+    class _Schema(Schema):
+        traffic_type = fields.Str(required=True)
+        backends = fields.List(fields.Str(), missing=list)
+        backend_ports = fields.List(fields.Int(), required=True)
+        algorithm = fields.List(fields.Str(), missing=list)
+        sticky = fields.Bool(missing=False)
+        health_checks = fields.List(HealthCheckField, missing=list)
+        public = fields.Bool(missing=True)
+        tls_termination = fields.Bool(missing=False)
+        tls_cert = fields.Str(missing=None)
+        tls_key = fields.Str(missing=None)
+        ingress_address = fields.Str(missing=None)
+        ingress_ports = fields.List(fields.Int(), missing=list)
+
     @classmethod
     def get_all(cls, app, relation):
-        raise NotImplementedError()
+        requests = []
+        for key, value in relation.data[app].items():
+            if not key.startswith('request_'):
+                continue
+            name = key.split('_', 1)[1]
+            requests.append(cls(app,
+                                relation,
+                                name,
+                                response=Response.get(app, relation, name),
+                                **json.loads(value)))
+        return requests
 
-    def __init__(self,
-                 app,
-                 relation,
-                 *,
-                 traffic_type: str,
-                 backends: Iterable[str] = None,
-                 backend_port: Union[int, Iterable[int]],
-                 algorithm: Sequence[str] = None,
-                 sticky: bool = False,
-                 health_checks: Iterable[HealthCheck] = None,
-                 public: bool = True,
-                 tls_termination: bool = False,
-                 tls_cert: str = None,
-                 tls_key: str = None,
-                 ingress_address: str = None,
-                 ingress_port: Union[int, Iterable[int]] = None,
-                 response: Response = None,
-                 ):
+    def __init__(self, app, relation, name, *, response=None, **kwargs):
+        self._schema = self._Schema()
         self.app = app
         self.relation = relation
-        self.traffic_type = traffic_type
-        self.backends = backends
-        self.backend_port = backend_port
-        self.algorithm = algorithm
-        self.sticky = sticky
-        self.health_checks = health_checks
-        self.public = public
-        self.tls_termination = tls_termination
-        self.tls_cert = tls_cert
-        self.tls_key = tls_key
-        self.ingress_address = ingress_address
-        self.ingress_port = ingress_port
+        self.name = name
         self.response = response
+        for field, value in self._schema.load(kwargs).items():
+            setattr(self, field, value)
+
+    def dump(self):
+        return self._schema.dump(self)
+
+    def dumps(self):
+        return json.dumps(self.dump(), sort_keys=True)
 
     @property
     def hash(self):
-        raise NotImplementedError()
+        return md5(self.dumps().encode('utf8')).hexdigest()
 
     def write(self):
-        raise NotImplementedError()
+        self.relation.data[self.app]['request_' + self.name] = self.dumps()
 
 
 class LBBase(Object):

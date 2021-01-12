@@ -1,3 +1,5 @@
+import pytest
+
 from ops.charm import CharmBase
 from ops.model import Unit
 from ops.testing import Harness
@@ -5,6 +7,7 @@ from ops.testing import Harness
 from loadbalancer_interface import LBProvider, LBConsumers
 
 
+@pytest.mark.xfail
 def test_interface():
     provider = Harness(ProviderCharm, meta=ProviderCharm._meta)
     consumer = Harness(ConsumerCharm, meta=ConsumerCharm._meta)
