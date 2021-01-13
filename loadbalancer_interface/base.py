@@ -4,7 +4,7 @@ from hashlib import md5
 from operator import attrgetter
 
 from cached_property import cached_property
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validates_schema, ValidationError
 
 from ops.framework import (
     Object,
@@ -15,16 +15,43 @@ VERSION = '1'
 
 
 class Response:
-    @classmethod
-    def get_all(cls, relation):
-        raise NotImplementedError()
+    class _Schema(Schema):
+        name = fields.Str(required=True)
+        success = fields.Bool(required=True)
+        message = fields.Str(missing=None)
+        address = fields.Str(required=True)
+        request_hash = fields.Str(required=True)
 
-    def __init__(self, relation):
+        @validates_schema
+        def _validate(self, data, **kwargs):
+            if not data['success'] and not data['message']:
+                raise ValidationError('message required on failure')
+
+    @classmethod
+    def get(cls, app, relation, name):
+        key = 'response_' + name
+        if key not in relation.data[app]:
+            return None
+        return cls(app,
+                   relation,
+                   **json.loads(relation.data[app][key]))
+
+    def __init__(self, app, relation, **kwargs):
+        self._schema = self._Schema()
+        self.app = app
         self.relation = relation
+        for field, value in self._schema.load(kwargs).items():
+            setattr(self, field, value)
+
+    def dump(self):
+        return json.dumps(self._schema.dump(self), sort_keys=True)
 
     @property
     def hash(self):
-        raise NotImplementedError()
+        return md5(self.dump().encode('utf8')).hexdigest()
+
+    def write(self):
+        self.relation.data[self.app]['response_' + self.name] = self.dump()
 
 
 class HealthCheck:
@@ -53,6 +80,7 @@ class HealthCheckField(fields.Field):
 
 class Request:
     class _Schema(Schema):
+        name = fields.Str(required=True)
         traffic_type = fields.Str(required=True)
         backends = fields.List(fields.Str(), missing=list)
         backend_ports = fields.List(fields.Int(), required=True)
@@ -67,40 +95,48 @@ class Request:
         ingress_ports = fields.List(fields.Int(), missing=list)
 
     @classmethod
+    def get(cls, app, relation, name):
+        key = 'request_' + name
+        if key not in relation.data[app]:
+            return None
+        return cls(app,
+                   relation,
+                   response=Response.get(app, relation, name),
+                   **json.loads(relation.data[app][key]))
+
+    @classmethod
     def get_all(cls, app, relation):
         requests = []
-        for key, value in relation.data[app].items():
+        for key, value in sorted(relation.data[app].items()):
             if not key.startswith('request_'):
                 continue
             name = key.split('_', 1)[1]
             requests.append(cls(app,
                                 relation,
-                                name,
                                 response=Response.get(app, relation, name),
                                 **json.loads(value)))
         return requests
 
-    def __init__(self, app, relation, name, *, response=None, **kwargs):
+    def __init__(self, app, relation, *, response=None, **kwargs):
         self._schema = self._Schema()
         self.app = app
         self.relation = relation
-        self.name = name
         self.response = response
         for field, value in self._schema.load(kwargs).items():
             setattr(self, field, value)
 
     def dump(self):
-        return self._schema.dump(self)
-
-    def dumps(self):
-        return json.dumps(self.dump(), sort_keys=True)
+        return json.dumps(self._schema.dump(self), sort_keys=True)
 
     @property
     def hash(self):
-        return md5(self.dumps().encode('utf8')).hexdigest()
+        return md5(self.dump().encode('utf8')).hexdigest()
 
     def write(self):
-        self.relation.data[self.app]['request_' + self.name] = self.dumps()
+        self.relation.data[self.app]['request_' + self.name] = self.dump()
+
+    def response(self, **kwargs):
+        raise NotImplementedError()
 
 
 class LBBase(Object):
@@ -137,7 +173,7 @@ class LBBase(Object):
 
     @property
     def is_changed(self):
-        return self.state.hash == self.hash
+        return self.state.hash != self.hash
 
     @is_changed.setter
     def is_changed(self, value):

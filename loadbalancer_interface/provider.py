@@ -18,14 +18,14 @@ class LBProvider(LBBase):
         # just call this to enforce that only one app can be related
         self.model.get_relation(relation_name)
 
-    def request(self, name, **kwargs):
+    def request(self, **kwargs):
         """ Request a load balancer / ingress endpoint from the provider.
         """
         if not self.charm.unit.is_leader():
             raise ModelError('Unit is not leader')
         if not self.relations:
             raise ModelError('Relation not available')
-        request = Request(self.charm.app, self.relations[0], name, **kwargs)
+        request = Request(self.charm.app, self.relations[0], **kwargs)
         request.write()
 
     @cached_property
@@ -40,5 +40,7 @@ class LBProvider(LBBase):
 
     @cached_property
     def hash(self):
+        if not self.responses:
+            return None
         hashes = [r.hash for r in self.responses]
         return md5(str(hashes).encode('utf8')).hexdigest()
