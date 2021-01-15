@@ -62,8 +62,8 @@ def test_interface():
     consumer.add_relation_unit(consumer._rid, c_unit1.name)
     consumer.add_relation_unit(consumer._rid, p_charm.unit.name)
     update_rel_data(consumer, {
-        c_unit0: {'ingress-address': '192.168.0.1'},
-        c_unit1: {'ingress-address': '192.168.0.2'},
+        c_unit1: {'ingress-address': '192.168.0.3'},
+        c_unit0: {'ingress-address': '192.168.0.5'},
     })
 
     assert not get_rel_data(provider, p_app)
@@ -86,6 +86,18 @@ def test_interface():
                                  backend_ports=[80])
     transmit_rel_data(consumer, provider)
     assert p_charm.clients.is_changed
+
+    assert len(p_charm.clients.new_requests) == 1
+    req = p_charm.clients.new_requests[0]
+    assert req.backends == ['192.168.0.5', '192.168.0.3']
+    p_charm.clients.respond(req, success=True, address='my-lb')
+    # TODO: Responses aren't loaded properly on the providing side, because the
+    #       current implementation assumes they'll be on the same app as the
+    #       request, where as on the provider side, they will be on the local
+    #       app.
+    # assert not p_charm.clients.new_requests
+
+    # TODO: transmit the response back and verify it
 
 
 class ProviderCharm(CharmBase):

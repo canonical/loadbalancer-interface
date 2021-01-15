@@ -6,7 +6,7 @@ from ops.framework import (
     StoredState,
 )
 
-from .base import LBBase, Request
+from .base import LBBase, Request, Response
 
 
 class LBConsumers(LBBase):
@@ -18,19 +18,33 @@ class LBConsumers(LBBase):
     def all_requests(self):
         """ A list of all current consumer requests.
         """
-        requests = []
-        if self.unit.is_leader():
-            # Only the leader can process requests, so prevent mistakes by
-            # not even reading the requests if not the leader.
-            for relation in self.relations:
-                requests.extend(Request.get_all(relation.app, relation))
-        return requests
+        if not self.unit.is_leader():
+            # Only the leader can process requests, so avoid mistakes
+            # by not even reading the requests if not the leader.
+            return []
+        return [request
+                for relation in self.relations
+                for request in Request._read_all(relation, relation.app)]
 
-    @cached_property
+    @property
     def new_requests(self):
         """A list of requests with changes or no response.
         """
-        return []
+        return [req for req in self.all_requests
+                if not req.response or req.response.request_hash != req.hash]
+
+    def respond(self, request, **kwargs):
+        """ Respond to a specific request.
+
+        Any existing response will be updated.
+        """
+        if request.response:
+            request.response._update(**kwargs)
+        else:
+            request.response = Response(name=request.name,
+                                        request_hash=request.hash,
+                                        **kwargs)
+        request.response._write(request.relation, self.charm.app)
 
     @cached_property
     def hash(self):

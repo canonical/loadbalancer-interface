@@ -28,30 +28,42 @@ class Response:
                 raise ValidationError('message required on failure')
 
     @classmethod
-    def get(cls, app, relation, name):
-        key = 'response_' + name
-        if key not in relation.data[app]:
-            return None
-        return cls(app,
-                   relation,
-                   **json.loads(relation.data[app][key]))
+    def _key(cls, name):
+        return 'response_' + name
 
-    def __init__(self, app, relation, **kwargs):
+    def __init__(self, **kwargs):
         self._schema = self._Schema()
-        self.app = app
-        self.relation = relation
         for field, value in self._schema.load(kwargs).items():
             setattr(self, field, value)
 
-    def dump(self):
-        return json.dumps(self._schema.dump(self), sort_keys=True)
+    @classmethod
+    def _read(cls, relation, app, name):
+        if cls._key(name) not in relation.data[app]:
+            return None
+        return cls(**json.loads(relation.data[app][cls._key(name)]))
+
+    @classmethod
+    def _read_all(cls, relation, app):
+        prefix = cls._key('')
+        for key, value in relation.data[app].items():
+            if not key.startswith(cls._key('')):
+                continue
+            name = key[len(prefix):]
+            yield cls._read(relation, app, name)
+
+    def _write(self, relation, app):
+        relation.data[app][self._key(self.name)] = self._dumps()
+
+    def _dumps(self):
+        serialized = self._schema.dump(self)
+        errors = self._schema.validate(serialized)
+        if errors:
+            raise ValidationError(errors)
+        return json.dumps(serialized, sort_keys=True)
 
     @property
     def hash(self):
-        return md5(self.dump().encode('utf8')).hexdigest()
-
-    def write(self):
-        self.relation.data[self.app]['response_' + self.name] = self.dump()
+        return md5(self._dumps().encode('utf8')).hexdigest()
 
 
 class HealthCheck:
@@ -95,48 +107,62 @@ class Request:
         ingress_ports = fields.List(fields.Int(), missing=list)
 
     @classmethod
-    def get(cls, app, relation, name):
-        key = 'request_' + name
-        if key not in relation.data[app]:
-            return None
-        return cls(app,
-                   relation,
-                   response=Response.get(app, relation, name),
-                   **json.loads(relation.data[app][key]))
+    def _key(cls, name):
+        return 'request_' + name
 
-    @classmethod
-    def get_all(cls, app, relation):
-        requests = []
-        for key, value in sorted(relation.data[app].items()):
-            if not key.startswith('request_'):
-                continue
-            name = key.split('_', 1)[1]
-            requests.append(cls(app,
-                                relation,
-                                response=Response.get(app, relation, name),
-                                **json.loads(value)))
-        return requests
-
-    def __init__(self, app, relation, *, response=None, **kwargs):
+    def __init__(self, relation, app, response=None, **kwargs):
         self._schema = self._Schema()
-        self.app = app
         self.relation = relation
+        self.app = app
         self.response = response
         for field, value in self._schema.load(kwargs).items():
             setattr(self, field, value)
 
-    def dump(self):
-        return json.dumps(self._schema.dump(self), sort_keys=True)
+    @classmethod
+    def _read(cls, relation, app, name):
+        if cls._key(name) not in relation.data[app]:
+            return None
+        response = Response._read(relation, app, name)
+        request = cls(relation, app, response,
+                      **json.loads(relation.data[app][cls._key(name)]))
+        if not request.backends:
+            # These must default the 'ingress-address' values for the units of
+            # the application.
+            units = {src.name: src
+                     for src in relation.data.keys()
+                     if getattr(src, 'app', None) is app}
+            for unit_name, unit in sorted(units.items()):
+                unit_address = relation.data[unit].get('ingress-address')
+                if unit_address:
+                    request.backends.append(unit_address)
+        return request
+
+    @classmethod
+    def _read_all(cls, relation, app):
+        prefix = cls._key('')
+        for key, value in relation.data[app].items():
+            if not key.startswith(cls._key('')):
+                continue
+            name = key[len(prefix):]
+            yield cls._read(relation, app, name)
+
+    def _write(self, relation, app):
+        relation.data[app][self._key(self.name)] = self._dumps()
+
+    def _dumps(self):
+        serialized = self._schema.dump(self)
+        errors = self._schema.validate(serialized)
+        if errors:
+            raise ValidationError(errors)
+        return json.dumps(serialized, sort_keys=True)
+
+    def _update(self, data):
+        for field, value in self._schema.load(data).items():
+            setattr(self, field, value)
 
     @property
     def hash(self):
-        return md5(self.dump().encode('utf8')).hexdigest()
-
-    def write(self):
-        self.relation.data[self.app]['request_' + self.name] = self.dump()
-
-    def response(self, **kwargs):
-        raise NotImplementedError()
+        return md5(self._dumps().encode('utf8')).hexdigest()
 
 
 class LBBase(Object):
