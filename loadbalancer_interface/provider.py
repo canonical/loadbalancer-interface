@@ -1,11 +1,9 @@
-from hashlib import md5
-
 from cached_property import cached_property
 
 from ops.framework import StoredState
 from ops.model import ModelError
 
-from .base import LBBase, Request, Response
+from .base import LBBase
 
 
 class LBProvider(LBBase):
@@ -17,44 +15,71 @@ class LBProvider(LBBase):
         super().__init__(charm, relation_name)
         # just call this to enforce that only one app can be related
         self.model.get_relation(relation_name)
+        self.state.set_default(response_hashes={})
 
     @property
     def relation(self):
         return self.relations[0] if self.relations else None
 
-    def request(self, name, **kwargs):
-        """ Request a load balancer / ingress endpoint from the provider.
-
-        If a request with the given name already exists, it will be updated.
+    def get_request(self, name):
+        """ Get or create a Load Balancer Request object.
         """
         if not self.charm.unit.is_leader():
             raise ModelError('Unit is not leader')
         if not self.relation:
             raise ModelError('Relation not available')
-        request = Request._read(self.relation, self.charm.app, name)
-        if request:
-            request._update(kwargs)
+        schema = self._schema(self.relation)
+        local_data = self.relation.data[self.app]
+        remote_data = self.relation.data[self.relation.app]
+        request_key = 'request_' + name
+        response_key = 'response_' + name
+        if request_key in local_data:
+            request_sdata = local_data[request_key]
+            response_sdata = remote_data.get(response_key)
+            request = schema.Request.loads(request_sdata, response_sdata)
         else:
-            request = Request(self.relation, self.charm.app,
-                              name=name, **kwargs)
-        request._write(self.relation, self.charm.app)
+            request = schema.Request(name)
+        return request
 
     def get_response(self, name):
-        """ Get a specific loadbalancer response by name, or None.
+        """ Get a specific Load Balancer Response by name.
+
+        This is equivalent to `get_request(name).response`.
         """
-        return Response._read(self.relation, self.relation.app, name)
+        return self.get_request(name).response
+
+    def send_request(self, request):
+        """ Send a specific request.
+        """
+        key = 'request_' + request.name
+        self.relation.data[self.app][key] = request.dumps()
+        self.state.response_hashes[request.name] = None
 
     @cached_property
-    def responses(self):
+    def all_responses(self):
         """ A list of all responses which are available.
         """
-        return [response
-                for relation in self.relations
-                for response in Response._read_all(relation, relation.app)]
+        local_data = self.relation.data[self.app]
+        request_names = [key[len('request_'):]
+                         for key in local_data.keys()
+                         if key.startswith('request_')]
+        return [self.get_request(name).response
+                for name in request_names]
 
-    @cached_property
-    def hash(self):
-        if not self.responses:
-            return None
-        hashes = [r.hash for r in self.responses]
-        return md5(str(hashes).encode('utf8')).hexdigest()
+    @property
+    def new_responses(self):
+        """ A list of all responses which have not yet been acknowledged as
+        handled or which have changed.
+        """
+        return [response
+                for response in self.all_responses
+                if self.state.response_hashes[response.name] != response.hash]
+
+    def ack_response(self, response):
+        """ Acknowledge that a given response has been handled.
+        """
+        self.state.response_hashes[response.name] = response.hash
+
+    @property
+    def is_changed(self):
+        return bool(self.new_responses)

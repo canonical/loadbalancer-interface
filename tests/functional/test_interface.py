@@ -15,6 +15,7 @@ def test_interface():
 
     peer_units = defaultdict(list)
 
+    # Helpers
     def add_peer_unit(harness):
         units = [harness.charm.unit] + peer_units[harness]
         next_unit_num = max(int(unit.name.split('/')[1]) for unit in units) + 1
@@ -53,51 +54,77 @@ def test_interface():
     c_unit0 = consumer.charm.unit
     c_unit1 = add_peer_unit(consumer)
 
+    # Setup initial relation with only Juju-provided automatic data.
     provider._rid = provider.add_relation('clients', c_charm.meta.name)
     consumer._rid = consumer.add_relation('loadbalancer', p_charm.meta.name)
+    # NB: The first unit added to the relation determines the app of the
+    # relation, so it's critical to add a remote unit before any local units.
     provider.add_relation_unit(provider._rid, c_unit0.name)
     provider.add_relation_unit(provider._rid, c_unit1.name)
     provider.add_relation_unit(provider._rid, p_charm.unit.name)
+    consumer.add_relation_unit(consumer._rid, p_charm.unit.name)
     consumer.add_relation_unit(consumer._rid, c_unit0.name)
     consumer.add_relation_unit(consumer._rid, c_unit1.name)
-    consumer.add_relation_unit(consumer._rid, p_charm.unit.name)
     update_rel_data(consumer, {
         c_unit1: {'ingress-address': '192.168.0.3'},
         c_unit0: {'ingress-address': '192.168.0.5'},
     })
 
+    # Confirm that only leaders set the version.
     assert not get_rel_data(provider, p_app)
     provider.set_leader(True)
     assert get_rel_data(provider, p_app) == {'version': '1'}
 
+    # Transmit version, but non-leader can't see it.
     transmit_rel_data(provider, consumer)
-
     assert not p_charm.clients.relations  # still waiting on remote version
 
+    # Verify that becoming leader completes the version negotiation process.
     consumer.set_leader(True)
     assert get_rel_data(consumer, c_app) == {'version': '1'}
-
     transmit_rel_data(consumer, provider)
     assert p_charm.clients.relations  # should now see the relation
 
+    # Test creating and sending a request.
     assert not p_charm.clients.is_changed
-    c_charm.loadbalancer.request(name='foo',
-                                 traffic_type='tcp',
-                                 backend_ports=[80])
+    req = c_charm.loadbalancer.get_request('foo')
+    req.traffic_type = 'tcp'
+    req.backend_ports = [80]
+    c_charm.loadbalancer.send_request(req)
     transmit_rel_data(consumer, provider)
     assert p_charm.clients.is_changed
 
+    # Test receiving the request and responding.
     assert len(p_charm.clients.new_requests) == 1
     req = p_charm.clients.new_requests[0]
     assert req.backends == ['192.168.0.5', '192.168.0.3']
-    p_charm.clients.respond(req, success=True, address='my-lb')
-    # TODO: Responses aren't loaded properly on the providing side, because the
-    #       current implementation assumes they'll be on the same app as the
-    #       request, where as on the provider side, they will be on the local
-    #       app.
-    # assert not p_charm.clients.new_requests
+    req.response.success = True
+    req.response.address = 'my-lb'
+    p_charm.clients.send_response(req)
+    assert not p_charm.clients.new_requests
 
-    # TODO: transmit the response back and verify it
+    # Test receiving the response.
+    assert not c_charm.loadbalancer.new_responses
+    assert not c_charm.loadbalancer.is_changed
+    transmit_rel_data(provider, consumer)
+    assert len(c_charm.loadbalancer.new_responses) == 1
+    assert c_charm.loadbalancer.is_changed
+    resp = c_charm.loadbalancer.new_responses[0]
+    assert resp.success
+    assert resp.address == 'my-lb'
+    c_charm.loadbalancer.ack_response(resp)
+    assert not c_charm.loadbalancer.new_responses
+    assert not c_charm.loadbalancer.is_changed
+
+    # Test updating the request and getting an updated response.
+    req.backends = ['192.168.0.5']
+    c_charm.loadbalancer.send_request(req)
+    transmit_rel_data(consumer, provider)
+    assert p_charm.clients.is_changed
+    p_charm.clients.send_response(req)
+    assert not p_charm.clients.is_changed
+    transmit_rel_data(provider, consumer)
+    assert c_charm.loadbalancer.is_changed
 
 
 class ProviderCharm(CharmBase):

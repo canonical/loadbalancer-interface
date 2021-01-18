@@ -1,4 +1,4 @@
-from hashlib import md5
+from operator import attrgetter
 
 from cached_property import cached_property
 
@@ -6,7 +6,7 @@ from ops.framework import (
     StoredState,
 )
 
-from .base import LBBase, Request, Response
+from .base import LBBase
 
 
 class LBConsumers(LBBase):
@@ -22,9 +22,25 @@ class LBConsumers(LBBase):
             # Only the leader can process requests, so avoid mistakes
             # by not even reading the requests if not the leader.
             return []
-        return [request
-                for relation in self.relations
-                for request in Request._read_all(relation, relation.app)]
+        requests = []
+        for relation in self.relations:
+            schema = self._schema(relation)
+            local_data = relation.data[self.app]
+            remote_data = relation.data[relation.app]
+            for key, request_sdata in remote_data.items():
+                if not key.startswith('request_'):
+                    continue
+                name = key[len('request_'):]
+                response_sdata = local_data.get('response_' + name)
+                request = schema.Request.loads(request_sdata, response_sdata)
+                request.relation = relation
+                if not request.backends:
+                    for unit in sorted(relation.units, key=attrgetter('name')):
+                        addr = relation.data[unit].get('ingress-address')
+                        if addr:
+                            request.backends.append(addr)
+                requests.append(request)
+        return requests
 
     @property
     def new_requests(self):
@@ -33,22 +49,13 @@ class LBConsumers(LBBase):
         return [req for req in self.all_requests
                 if not req.response or req.response.request_hash != req.hash]
 
-    def respond(self, request, **kwargs):
-        """ Respond to a specific request.
-
-        Any existing response will be updated.
+    def send_response(self, request):
+        """ Send a specific request's response.
         """
-        if request.response:
-            request.response._update(**kwargs)
-        else:
-            request.response = Response(name=request.name,
-                                        request_hash=request.hash,
-                                        **kwargs)
-        request.response._write(request.relation, self.charm.app)
+        request.response.request_hash = request.hash
+        key = 'response_' + request.name
+        request.relation.data[self.app][key] = request.response.dumps()
 
-    @cached_property
-    def hash(self):
-        if not self.all_requests:
-            return None
-        hashes = [r.hash for r in self.all_requests]
-        return md5(str(hashes).encode('utf8')).hexdigest()
+    @property
+    def is_changed(self):
+        return bool(self.new_requests)
