@@ -78,6 +78,13 @@ class LBConsumers(LBBase):
         request.response.request_hash = request.hash
         key = 'response_' + request.name
         request.relation.data[self.app][key] = request.response.dumps()
+        if not self.new_requests:
+            try:
+                from charms.reactive import clear_flag
+                prefix = 'endpoint.' + self.relation_name
+                clear_flag(prefix + '.requests_changed')
+            except ImportError:
+                pass  # not being used in a reactive charm
 
     @property
     def is_changed(self):

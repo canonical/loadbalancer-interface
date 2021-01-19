@@ -117,6 +117,13 @@ class LBProvider(LBBase):
         """ Acknowledge that a given response has been handled.
         """
         self.state.response_hashes[response.name] = response.hash
+        if not self.new_responses:
+            try:
+                from charms.reactive import clear_flag
+                prefix = 'endpoint.' + self.relation_name
+                clear_flag(prefix + '.responses_changed')
+            except ImportError:
+                pass  # not being used in a reactive charm
 
     @property
     def is_changed(self):
