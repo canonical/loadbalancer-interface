@@ -1,5 +1,15 @@
 # API Reference
 
+## Table of Contents
+
+  * [`LBProvider` Class](#lbprovider-class)
+  * [`LBConsumers` Class](#lbconsumers-class)
+  * [`Request` Objects](#request-objects)
+  * [`HealthCheck` Objects](#healthcheck-objects)
+  * [`Response` Objects](#response-objects)
+
+-----------------------------------------
+
 ## `LBProvider` Class
 
 This is the main API class for requesting load balancers from a provider charm.
