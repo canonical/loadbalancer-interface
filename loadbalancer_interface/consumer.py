@@ -3,16 +3,39 @@ from operator import attrgetter
 from cached_property import cached_property
 
 from ops.framework import (
-    StoredState,
+    EventBase,
+    EventSource,
+    ObjectEvents,
 )
 
 from .base import LBBase
 
 
+class LBRequestsChanged(EventBase):
+    pass
+
+
+class LBConsumersEvents(ObjectEvents):
+    requests_changed = EventSource(LBRequestsChanged)
+
+
 class LBConsumers(LBBase):
     """ API used to interact with consumers of a loadbalancer provider.
     """
-    state = StoredState()
+    on = LBConsumersEvents()
+
+    def __init__(self, charm, relation_name):
+        super().__init__(charm, relation_name)
+        self.relation_name = relation_name
+
+        for event in (charm.on[relation_name].relation_created,
+                      charm.on[relation_name].relation_joined,
+                      charm.on[relation_name].relation_changed):
+            self.framework.observe(event, self._check_consumers)
+
+    def _check_consumers(self, event):
+        if self.is_changed:
+            self.on.requests_changed.emit()
 
     @cached_property
     def all_requests(self):
@@ -59,3 +82,10 @@ class LBConsumers(LBBase):
     @property
     def is_changed(self):
         return bool(self.new_requests)
+
+    def manage_flags(self):
+        """ Used to interact with charms.reactive-base charms.
+        """
+        from charms.reactive import toggle_flag
+        prefix = 'endpoint.' + self.relation_name
+        toggle_flag(prefix + '.requests_changed', self.is_changed)

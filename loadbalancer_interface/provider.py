@@ -1,21 +1,59 @@
 from cached_property import cached_property
 
-from ops.framework import StoredState
+from ops.framework import (
+    StoredState,
+    EventBase,
+    EventSource,
+    ObjectEvents,
+)
 from ops.model import ModelError
 
 from .base import LBBase
+
+
+class LBProviderAvailable(EventBase):
+    pass
+
+
+class LBResponsesChanged(EventBase):
+    pass
+
+
+class LBProviderEvents(ObjectEvents):
+    available = EventSource(LBProviderAvailable)
+    responses_changed = EventSource(LBResponsesChanged)
 
 
 class LBProvider(LBBase):
     """ API used to interact with the provider of loadbalancers.
     """
     state = StoredState()
+    on = LBProviderEvents()
 
     def __init__(self, charm, relation_name):
         super().__init__(charm, relation_name)
+        self.relation_name = relation_name
         # just call this to enforce that only one app can be related
         self.model.get_relation(relation_name)
-        self.state.set_default(response_hashes={})
+        self.state.set_default(response_hashes={},
+                               was_available=False)
+
+        for event in (charm.on[relation_name].relation_created,
+                      charm.on[relation_name].relation_joined,
+                      charm.on[relation_name].relation_changed,
+                      charm.on[relation_name].relation_departed,
+                      charm.on[relation_name].relation_broken):
+            self.framework.observe(event, self._check_provider)
+
+    def _check_provider(self, event):
+        if self.is_available:
+            if not self.state.was_available:
+                self.state.was_available = True
+                self.on.available.emit()
+            if self.is_changed:
+                self.on.responses_changed.emit()
+        else:
+            self.state.was_available = False
 
     @property
     def relation(self):
@@ -83,3 +121,15 @@ class LBProvider(LBBase):
     @property
     def is_changed(self):
         return bool(self.new_responses)
+
+    @property
+    def is_available(self):
+        return bool(self.relation)
+
+    def manage_flags(self):
+        """ Used to interact with charms.reactive-base charms.
+        """
+        from charms.reactive import toggle_flag
+        prefix = 'endpoint.' + self.relation_name
+        toggle_flag(prefix + '.available', self.is_available)
+        toggle_flag(prefix + '.responses_changed', self.is_changed)
