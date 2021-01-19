@@ -203,3 +203,9 @@ def get_lb():
             request.response.message = e.message
         lb_consumers.send_response(request)
 ```
+
+
+<!-- Links -->
+
+[Operator Framework]: https://github.com/canonical/operator/
+[charms.reactive Framework]: https://charmsreactive.readthedocs.io/
