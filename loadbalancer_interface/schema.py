@@ -118,7 +118,6 @@ class HealthCheckField(fields.Field):
 
 class Request(SchemaWrapper):
     class _Schema(Schema):
-        name = fields.Str(required=True)
         traffic_type = fields.Str(required=True)
         backends = fields.List(fields.Str(), missing=list)
         backend_ports = fields.List(fields.Int(), required=True)
@@ -134,19 +133,27 @@ class Request(SchemaWrapper):
 
     def __init__(self, name):
         super().__init__()
-        self.name = name
+        self._name = name
         # On the provider side, requests need to track which relation they
         # came from to know where to send the response.
         self.relation = None
         self.response = Response(self)
 
+    @property
+    def name(self):
+        return self._name
+
     @classmethod
-    def loads(cls, request_sdata, response_sdata=None):
-        request_data = json.loads(request_sdata)
-        if 'name' not in request_data:
-            raise ValidationError({'name': 'Field is required'})
-        self = cls(request_data['name'])
+    def loads(cls, name, request_sdata, response_sdata=None):
+        self = cls(name)
         self._update(json.loads(request_sdata))
         if response_sdata:
             self.response._update(json.loads(response_sdata))
         return self
+
+    def add_health_check(self, **kwargs):
+        """ Create a HealthCheck and add it to the list.
+        """
+        health_check = HealthCheck()._update(kwargs)
+        self.health_checks.append(health_check)
+        return health_check

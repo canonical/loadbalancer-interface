@@ -30,11 +30,11 @@ def test_request():
 
     hc = HealthCheck()._update(traffic_type='https', port=443)
     req.health_checks.append(hc)
-    assert req.hash == '6ba8b9ec3277be27270f3af4d9939488'
+    assert req.hash == '227e12b7f5eb3388ac931e89a3510285'
     hc.port = 6443
-    assert req.hash == 'bb07080eeb500a34a458276021c9fa3e'
+    assert req.hash == 'f0ab4768bc530703691fa4dd530e97a5'
     req.repsonse = 'foo'
-    assert req.hash == 'bb07080eeb500a34a458276021c9fa3e'
+    assert req.hash == 'f0ab4768bc530703691fa4dd530e97a5'
 
     req.traffic_type = None
     with pytest.raises(ValidationError):
@@ -42,10 +42,10 @@ def test_request():
     assert req.hash is None
     req.traffic_type = 'https'
 
-    req2 = Request.loads(req.dumps(), '{'
+    req2 = Request.loads('name', req.dumps(), '{'
                          ' "success": true,'
                          ' "address": "foo",'
-                         ' "request_hash": "bb07080eeb500a34a458276021c9fa3e"'
+                         ' "request_hash": "f0ab4768bc530703691fa4dd530e97a5"'
                          '}')
     assert req2.hash == req.hash
     assert req2.response.success

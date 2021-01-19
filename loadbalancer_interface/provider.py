@@ -74,7 +74,7 @@ class LBProvider(LBBase):
         if request_key in local_data:
             request_sdata = local_data[request_key]
             response_sdata = remote_data.get(response_key)
-            request = schema.Request.loads(request_sdata, response_sdata)
+            request = schema.Request.loads(name, request_sdata, response_sdata)
         else:
             request = schema.Request(name)
         return request

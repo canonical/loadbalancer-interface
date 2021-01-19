@@ -55,7 +55,9 @@ class LBConsumers(LBBase):
                     continue
                 name = key[len('request_'):]
                 response_sdata = local_data.get('response_' + name)
-                request = schema.Request.loads(request_sdata, response_sdata)
+                request = schema.Request.loads(name,
+                                               request_sdata,
+                                               response_sdata)
                 request.relation = relation
                 if not request.backends:
                     for unit in sorted(relation.units, key=attrgetter('name')):
