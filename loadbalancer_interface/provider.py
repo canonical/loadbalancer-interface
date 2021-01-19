@@ -98,11 +98,11 @@ class LBProvider(LBBase):
         """ A list of all responses which are available.
         """
         local_data = self.relation.data[self.app]
-        request_names = [key[len('request_'):]
-                         for key in local_data.keys()
-                         if key.startswith('request_')]
-        return [self.get_request(name).response
-                for name in request_names]
+        names = [key[len('request_'):]
+                 for key in local_data.keys()
+                 if key.startswith('request_')]
+        requests = [self.get_request(name) for name in names]
+        return [request.response for request in requests if request.response]
 
     @property
     def new_responses(self):

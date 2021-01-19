@@ -77,11 +77,13 @@ class Response(SchemaWrapper):
     class _Schema(Schema):
         success = fields.Bool(required=True)
         message = fields.Str(missing=None)
-        address = fields.Str(required=True)
+        address = fields.Str(missing=None)
         request_hash = fields.Str(missing=None)
 
         @validates_schema
         def _validate(self, data, **kwargs):
+            if data['success'] and not data['address']:
+                raise ValidationError('address required on success')
             if not data['success'] and not data['message']:
                 raise ValidationError('message required on failure')
 
