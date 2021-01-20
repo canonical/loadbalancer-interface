@@ -3,12 +3,13 @@ from unittest.mock import Mock
 import pytest
 from marshmallow import ValidationError
 
-from loadbalancer_interface.schema import (
-    HealthCheck,
-    HealthCheckField,
-    Request,
-    Response,
-)
+from loadbalancer_interface import schemas
+
+v1 = schemas.versions[1]
+HealthCheck = v1.HealthCheck
+HealthCheckField = v1.HealthCheckField
+Request = v1.Request
+Response = v1.Response
 
 
 def test_request():
@@ -25,6 +26,7 @@ def test_request():
     req = Request('name')
     req.traffic_type = 'https'
     req.backend_ports = [443]
+    assert req.version == 1
     assert req.health_checks == []
     assert req.dump()
 
@@ -109,6 +111,7 @@ def test_health_check():
                               foo='bar')
 
     hc = HealthCheck()._update(traffic_type='https', port=443)
+    assert hc.version == 1
     assert hc.traffic_type == 'https'
     assert hc.port == 443
     assert hc.path is None

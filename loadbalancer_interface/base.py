@@ -7,7 +7,7 @@ from ops.framework import (
     Object,
 )
 
-from . import schema
+from . import schemas
 
 
 class LBBase(Object):
@@ -15,11 +15,6 @@ class LBBase(Object):
         super().__init__(charm, relation_name)
         self.charm = weakref.proxy(charm)
         self.relation_name = relation_name
-
-        self._schemas = {
-            schema.version: schema,
-        }
-        self._max_version = max(self._schemas.keys())
 
         # Future-proof against the need to evolve the relation protocol
         # by ensuring that we agree on a version number before starting.
@@ -36,7 +31,7 @@ class LBBase(Object):
             else:
                 relations = self.model.relations.get(self.relation_name, [])
             for relation in relations:
-                relation.data[self.app]['version'] = str(self._max_version)
+                relation.data[self.app]['version'] = str(schemas.max_version)
 
     @cached_property
     def relations(self):
@@ -52,7 +47,7 @@ class LBBase(Object):
         if 'version' not in data:
             return None
         remote_version = int(data['version'])
-        return self._schemas[min((self._max_version, remote_version))]
+        return schemas.versions[min((schemas.max_version, remote_version))]
 
     @property
     def model(self):
