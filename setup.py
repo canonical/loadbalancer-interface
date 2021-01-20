@@ -12,10 +12,7 @@ SETUP = {
         "ops>=1.0.0",
         "cached_property",
         "marshmallow",
-    ],
-    # TODO: move this to normal PyPI dependency when ready
-    "dependency_links": [
-        "https://github.com/juju-solutions/ops-reactive-interface/archive/master.zip#egg=ops-reactive-interface",  # noqa
+        "ops_reactive_interface",
     ],
     "entry_points": {
         "ops_reactive_interface.provides": "loadbalancer = loadbalancer_interface:LBProducer",  # noqa

@@ -13,8 +13,7 @@ Include this library as a dependency for your charm, either in
 reactive charms:
 
 ```
-# TODO: publish this to PyPI
-https://github.com/juju-solutions/loadbalancer-interface/archive/master.zip#egg=loadbalancer_interface
+loadbalancer_interface
 ```
 
 ## Usage
