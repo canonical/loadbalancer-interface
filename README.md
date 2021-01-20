@@ -33,8 +33,8 @@ The general pattern for using the class is:
   * Confirm that the request was successful and use the provided LB's address
   * Acknowledge the `Response` via `ack_response(response)`
 
-There are examples in the docs on how to do this in [an operator charm](docs/examples/requires_operator.md)
-or in [a reactive charm](docs/examples/requires_reactive.md).
+There are examples in the docs on how to do this in [an operator charm][requires_operator]
+or in [a reactive charm][requires_reactive].
 
 
 ### Providing Load Balancers
@@ -48,15 +48,20 @@ general pattern for using the class is:
   * Set the appropriate fields on the request's `response` object
   * Send the request's response via the `send_response(request)` method
 
-There are examples in the docs on how to do this in [an operator charm](docs/examples/provides_operator.md)
-or in [a reactive charm](docs/examples/provides_reactive.md).
+There are examples in the docs on how to do this in [an operator charm][provides_operator]
+or in [a reactive charm][provides_reactive].
 
 ## API Reference
 
-See [the docs](docs/api.md) for detailed reference on the API.
+See the [API docs][] for detailed reference on the API.
 
 
 <!-- Links -->
 
 [Operator Framework]: https://github.com/canonical/operator/
 [charms.reactive Framework]: https://charmsreactive.readthedocs.io/
+[requires_operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/requires_operator.md
+[requires_reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/requires_reactive.md
+[provides_operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/provides_operator.md
+[provides_reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/provides_reactive.md
+[API docs]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/api.md
