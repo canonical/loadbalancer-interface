@@ -10,7 +10,7 @@ from ops.framework import (
 from . import schemas
 
 
-class LBBase(Object):
+class VersionedInterface(Object):
     def __init__(self, charm, relation_name):
         super().__init__(charm, relation_name)
         self.charm = weakref.proxy(charm)

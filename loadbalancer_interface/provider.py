@@ -8,7 +8,7 @@ from ops.framework import (
 )
 from ops.model import ModelError
 
-from .base import LBBase
+from .base import VersionedInterface
 
 
 class LBProviderAvailable(EventBase):
@@ -24,7 +24,7 @@ class LBProviderEvents(ObjectEvents):
     responses_changed = EventSource(LBResponsesChanged)
 
 
-class LBProvider(LBBase):
+class LBProvider(VersionedInterface):
     """ API used to interact with the provider of loadbalancers.
     """
     state = StoredState()
@@ -89,6 +89,10 @@ class LBProvider(LBBase):
     def send_request(self, request):
         """ Send a specific request.
         """
+        if not self.charm.unit.is_leader():
+            raise ModelError('Unit is not leader')
+        if not self.relation:
+            raise ModelError('Relation not available')
         key = 'request_' + request.name
         self.relation.data[self.app][key] = request.dumps()
         self.state.response_hashes[request.name] = None
@@ -97,6 +101,8 @@ class LBProvider(LBBase):
     def all_responses(self):
         """ A list of all responses which are available.
         """
+        if not self.relation:
+            return []
         local_data = self.relation.data[self.app]
         names = [key[len('request_'):]
                  for key in local_data.keys()
@@ -132,6 +138,10 @@ class LBProvider(LBBase):
     @property
     def is_available(self):
         return bool(self.relation)
+
+    @property
+    def can_request(self):
+        return self.is_available and self.unit.is_leader()
 
     def manage_flags(self):
         """ Used to interact with charms.reactive-base charms.

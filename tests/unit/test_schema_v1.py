@@ -29,6 +29,9 @@ def test_request():
     assert req.version == 1
     assert req.health_checks == []
     assert req.dump()
+    assert req.id is None
+    req.relation = Mock(id='0')
+    assert req.id == '0:name'
 
     hc = HealthCheck()._update(traffic_type='https', port=443)
     req.health_checks.append(hc)

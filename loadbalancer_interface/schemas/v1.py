@@ -85,6 +85,12 @@ class Request(SchemaWrapper):
     def name(self):
         return self._name
 
+    @property
+    def id(self):
+        if self.relation is None:
+            return None
+        return '{}:{}'.format(self.relation.id, self.name)
+
     @classmethod
     def loads(cls, name, request_sdata, response_sdata=None):
         self = cls(name)

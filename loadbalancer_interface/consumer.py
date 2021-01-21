@@ -8,7 +8,7 @@ from ops.framework import (
     ObjectEvents,
 )
 
-from .base import LBBase
+from .base import VersionedInterface
 
 
 class LBRequestsChanged(EventBase):
@@ -19,7 +19,7 @@ class LBConsumersEvents(ObjectEvents):
     requests_changed = EventSource(LBRequestsChanged)
 
 
-class LBConsumers(LBBase):
+class LBConsumers(VersionedInterface):
     """ API used to interact with consumers of a loadbalancer provider.
     """
     on = LBConsumersEvents()

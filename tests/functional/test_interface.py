@@ -55,8 +55,8 @@ def test_interface():
     c_unit1 = add_peer_unit(consumer)
 
     # Setup initial relation with only Juju-provided automatic data.
-    provider._rid = provider.add_relation('clients', c_charm.meta.name)
-    consumer._rid = consumer.add_relation('loadbalancer', p_charm.meta.name)
+    provider._rid = provider.add_relation('lb-consumers', c_charm.meta.name)
+    consumer._rid = consumer.add_relation('lb-provider', p_charm.meta.name)
     # NB: The first unit added to the relation determines the app of the
     # relation, so it's critical to add a remote unit before any local units.
     provider.add_relation_unit(provider._rid, c_unit0.name)
@@ -70,84 +70,120 @@ def test_interface():
         c_unit0: {'ingress-address': '192.168.0.5'},
     })
 
+    foo_id = '{}:foo'.format(provider._rid)
+    bar_id = '{}:bar'.format(provider._rid)
+
     # Confirm that only leaders set the version.
     assert not get_rel_data(provider, p_app)
     provider.set_leader(True)
     assert get_rel_data(provider, p_app) == {'version': '1'}
+    assert not c_charm.lb_provider.is_available  # waiting on remote version
+    assert not c_charm.lb_provider.can_request  # waiting on remote version
 
-    # Transmit version, but non-leader can't see it.
+    # Transmit version, but non-leader still can't make requests
     transmit_rel_data(provider, consumer)
-    assert not p_charm.clients.relations  # still waiting on remote version
+    assert c_charm.lb_provider.is_available
+    assert not c_charm.lb_provider.can_request  # not leader
 
-    # Verify that becoming leader completes the version negotiation process.
+    # Verify that becoming leader completes the version negotiation process and
+    # allows sending requests.
     consumer.set_leader(True)
+    assert c_charm.lb_provider.can_request
     assert get_rel_data(consumer, c_app) == {'version': '1'}
     transmit_rel_data(consumer, provider)
-    assert p_charm.clients.relations  # should now see the relation
 
     # Test creating and sending a request.
-    assert not p_charm.clients.is_changed
-    req = c_charm.loadbalancer.get_request('foo')
-    req.traffic_type = 'tcp'
-    req.backend_ports = [80]
-    c_charm.loadbalancer.send_request(req)
+    c_charm.request_lb('foo')
     transmit_rel_data(consumer, provider)
-    assert p_charm.clients.is_changed
+    assert foo_id in p_charm.managed_lbs
+    assert p_charm.managed_lbs[foo_id].backends == ['192.168.0.5',
+                                                    '192.168.0.3']
 
-    # Test receiving the request and responding.
-    assert len(p_charm.clients.new_requests) == 1
-    req = p_charm.clients.new_requests[0]
-    assert req.backends == ['192.168.0.5', '192.168.0.3']
-    req.response.success = True
-    req.response.address = 'my-lb'
-    p_charm.clients.send_response(req)
-    assert not p_charm.clients.new_requests
-
-    # Test receiving the response.
-    assert not c_charm.loadbalancer.new_responses
-    assert not c_charm.loadbalancer.is_changed
+    # Test receiving the response
+    assert not c_charm.active_lbs
+    assert not c_charm.failed_lbs
     transmit_rel_data(provider, consumer)
-    assert len(c_charm.loadbalancer.new_responses) == 1
-    assert c_charm.loadbalancer.is_changed
-    resp = c_charm.loadbalancer.new_responses[0]
-    assert resp.success
-    assert resp.address == 'my-lb'
-    c_charm.loadbalancer.ack_response(resp)
-    assert not c_charm.loadbalancer.new_responses
-    assert not c_charm.loadbalancer.is_changed
+    assert c_charm.active_lbs == {'lb-foo': 1}
+    assert not c_charm.failed_lbs
 
     # Test updating the request and getting an updated response.
-    req.backends = ['192.168.0.5']
-    c_charm.loadbalancer.send_request(req)
+    c_charm.request_lb('foo', ['192.168.0.5'])
     transmit_rel_data(consumer, provider)
-    assert p_charm.clients.is_changed
-    p_charm.clients.send_response(req)
-    assert not p_charm.clients.is_changed
+    assert p_charm.managed_lbs[foo_id].backends == ['192.168.0.5']
     transmit_rel_data(provider, consumer)
-    assert c_charm.loadbalancer.is_changed
+    assert c_charm.active_lbs == {'lb-foo': 2}
+    assert not c_charm.failed_lbs
+
+    # Test sending a second request
+    c_charm.request_lb('bar')
+    transmit_rel_data(consumer, provider)
+    transmit_rel_data(provider, consumer)
+    assert bar_id in p_charm.managed_lbs
+    assert c_charm.active_lbs == {'lb-foo': 2}
+    assert c_charm.failed_lbs == {'bar'}
 
 
 class ProviderCharm(CharmBase):
     _meta = """
         name: provider
         provides:
-          clients:
+          lb-consumers:
             interface: loadbalancer
     """
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.clients = LBConsumers(self, 'clients')
+        self.lb_consumers = LBConsumers(self, 'lb-consumers')
+
+        self.framework.observe(self.lb_consumers.on.requests_changed,
+                               self._create_lbs)
+
+        self.managed_lbs = {}
+
+    def _create_lbs(self, event):
+        for request in self.lb_consumers.new_requests:
+            if request.name == 'foo':
+                request.response.success = True
+                request.response.address = 'lb-' + request.name
+            else:
+                request.response.success = False
+                request.response.message = 'No reason'
+            self.managed_lbs[request.id] = request
+            self.lb_consumers.send_response(request)
 
 
 class ConsumerCharm(CharmBase):
     _meta = """
         name: consumer
         requires:
-          loadbalancer:
+          lb-provider:
             interface: loadbalancer
     """
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.loadbalancer = LBProvider(self, 'loadbalancer')
+        self.lb_provider = LBProvider(self, 'lb-provider')
+
+        self.framework.observe(self.lb_provider.on.responses_changed,
+                               self._get_lb)
+
+        self.saw_available = False
+        self.active_lbs = dict()
+        self.failed_lbs = set()
+
+    def request_lb(self, name, backends=None):
+        request = self.lb_provider.get_request(name)
+        request.traffic_type = 'https'
+        request.backend_ports = [443]
+        if backends is not None:
+            request.backends = backends
+        self.lb_provider.send_request(request)
+
+    def _get_lb(self, event):
+        for response in self.lb_provider.new_responses:
+            if response.success:
+                self.active_lbs.setdefault(response.address, 0)
+                self.active_lbs[response.address] += 1
+            else:
+                self.failed_lbs.add(response.name)
+            self.lb_provider.ack_response(response)
