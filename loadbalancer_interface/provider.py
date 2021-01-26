@@ -106,13 +106,11 @@ class LBProvider(VersionedInterface):
             raise ModelError('Unit is not leader')
         if not self.relation:
             raise ModelError('Relation not available')
-        # The nonce is used to indicate to the provider that the request has
-        # changed, and for us to be able to tell when an updated request has a
-        # corresponding updated response. We can't used the request hash
-        # computed on the providing side because it may not match due to
-        # default values being filled in on that side (e.g., the backend
-        # addresses).
-        request.nonce = request.hash
+        # The sent_hash is used to tell when the provider's response has been
+        # updated to match our request. We can't used the request hash computed
+        # on the providing side because it may not match due to default values
+        # being filled in on that side (e.g., the backend addresses).
+        request.sent_hash = request.hash
         key = 'request_' + request.name
         self.relation.data[self.app][key] = request.dumps()
 
@@ -165,7 +163,7 @@ class LBProvider(VersionedInterface):
         """
         return [request.response
                 for request in self.all_requests
-                if request.response.nonce == request.nonce]
+                if request.response.received_hash == request.sent_hash]
 
     @property
     def new_responses(self):

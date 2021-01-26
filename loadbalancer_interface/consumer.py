@@ -92,7 +92,7 @@ class LBConsumers(VersionedInterface):
     def send_response(self, request):
         """ Send a specific request's response.
         """
-        request.response.nonce = request.nonce
+        request.response.received_hash = request.sent_hash
         key = 'response_' + request.name
         request.relation.data[self.app][key] = request.response.dumps()
         self.state.known_requests[request.id] = request.hash

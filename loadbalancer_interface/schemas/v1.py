@@ -18,7 +18,7 @@ class Response(SchemaWrapper):
         success = fields.Bool(required=True)
         message = fields.Str(missing=None)
         address = fields.Str(missing=None)
-        nonce = fields.Str(missing=None)
+        received_hash = fields.Str(missing=None)
 
         @validates_schema
         def _validate(self, data, **kwargs):
@@ -30,7 +30,6 @@ class Response(SchemaWrapper):
     def __init__(self, request):
         super().__init__()
         self._name = request.name
-        self._req_nonce = request.nonce
 
     @property
     def name(self):
@@ -73,7 +72,7 @@ class Request(SchemaWrapper):
         tls_key = fields.Str(missing=None)
         ingress_address = fields.Str(missing=None)
         ingress_ports = fields.List(fields.Int(), missing=list)
-        nonce = fields.Str(missing=None)
+        sent_hash = fields.Str(missing=None)
 
     @classmethod
     def _from_id(cls, req_id, relations):
