@@ -97,38 +97,57 @@ def test_interface():
     # Test creating and sending a request.
     c_charm.request_lb('foo')
     transmit_rel_data(consumer, provider)
-    assert foo_id in p_charm.managed_lbs
-    assert p_charm.managed_lbs[foo_id].backends == ['192.168.0.5',
-                                                    '192.168.0.3']
+    assert foo_id in p_charm.lb_consumers.state.known_requests
+    assert p_charm.lb_consumers.all_requests[0].backends == ['192.168.0.5',
+                                                             '192.168.0.3']
+    assert p_charm.changes == {'foo': 1}
 
     # Test receiving the response
     assert not c_charm.active_lbs
     assert not c_charm.failed_lbs
     transmit_rel_data(provider, consumer)
-    assert c_charm.active_lbs == {'foo': ['lb-foo', 1]}
+    assert c_charm.changes == {'foo': 1}
+    assert c_charm.active_lbs == {'foo'}
+    assert not c_charm.failed_lbs
+    assert c_charm.lb_provider.get_response('foo').address == 'lb-foo'
+
+    # Test default updates being tracked
+    update_rel_data(consumer, {
+        c_unit1: {'ingress-address': '192.168.0.4'},
+        c_unit0: {'ingress-address': '192.168.0.6'},
+    })
+    transmit_rel_data(consumer, provider)
+    transmit_rel_data(provider, consumer)
+    assert p_charm.changes == {'foo': 3}
+    # Note: Since the request didn't change, the requires side doesn't see
+    # a change in the response.
+    assert c_charm.changes == {'foo': 1}
+    assert c_charm.active_lbs == {'foo'}
     assert not c_charm.failed_lbs
 
     # Test updating the request and getting an updated response.
     c_charm.request_lb('foo', ['192.168.0.5'])
     transmit_rel_data(consumer, provider)
-    assert p_charm.managed_lbs[foo_id].backends == ['192.168.0.5']
     transmit_rel_data(provider, consumer)
-    assert c_charm.active_lbs == {'foo': ['lb-foo', 2]}
+    assert p_charm.lb_consumers.all_requests[0].backends == ['192.168.0.5']
+    assert p_charm.changes == {'foo': 4}
+    assert c_charm.changes == {'foo': 2}
+    assert c_charm.active_lbs == {'foo'}
     assert not c_charm.failed_lbs
 
     # Test sending a second request
     c_charm.request_lb('bar')
     transmit_rel_data(consumer, provider)
     transmit_rel_data(provider, consumer)
-    assert bar_id in p_charm.managed_lbs
-    assert c_charm.active_lbs == {'foo': ['lb-foo', 2]}
+    assert bar_id in p_charm.lb_consumers.state.known_requests
+    assert c_charm.active_lbs == {'foo'}
     assert c_charm.failed_lbs == {'bar'}
 
     # Test request removal
     c_charm.lb_provider.remove_request('bar')
     transmit_rel_data(consumer, provider)
-    assert foo_id in p_charm.managed_lbs
-    assert bar_id not in p_charm.managed_lbs
+    assert foo_id in p_charm.lb_consumers.state.known_requests
+    assert bar_id not in p_charm.lb_consumers.state.known_requests
     assert len(p_charm.lb_consumers.all_requests) == 1
 
     # Test response revocation
@@ -153,20 +172,20 @@ class ProviderCharm(CharmBase):
         self.framework.observe(self.lb_consumers.on.requests_changed,
                                self._update_lbs)
 
-        self.managed_lbs = {}
+        self.changes = {}
 
     def _update_lbs(self, event):
         for request in self.lb_consumers.new_requests:
+            self.changes.setdefault(request.name, 0)
+            self.changes[request.name] += 1
             if request.name == 'foo':
                 request.response.success = True
                 request.response.address = 'lb-' + request.name
             else:
                 request.response.success = False
                 request.response.message = 'No reason'
-            self.managed_lbs[request.id] = request
             self.lb_consumers.send_response(request)
         for request in self.lb_consumers.removed_requests:
-            self.managed_lbs.pop(request.id, None)
             self.lb_consumers.revoke_response(request)
 
 
@@ -186,8 +205,8 @@ class ConsumerCharm(CharmBase):
         self.framework.observe(self.lb_provider.on.responses_changed,
                                self._update_lbs)
 
-        self.saw_available = False
-        self.active_lbs = dict()
+        self.changes = {}
+        self.active_lbs = set()
         self.failed_lbs = set()
 
     def request_lb(self, name, backends=None):
@@ -200,13 +219,15 @@ class ConsumerCharm(CharmBase):
 
     def _update_lbs(self, event):
         for response in self.lb_provider.new_responses:
+            self.changes.setdefault(response.name, 0)
+            self.changes[response.name] += 1
             if response.success:
-                self.active_lbs.setdefault(response.name,
-                                           [response.address, 0])
-                self.active_lbs[response.name][1] += 1
+                self.active_lbs.add(response.name)
+                self.failed_lbs.discard(response.name)
             else:
+                self.active_lbs.discard(response.name)
                 self.failed_lbs.add(response.name)
             self.lb_provider.ack_response(response)
-        for request in self.lb_provider.revoked_requests:
-            self.active_lbs.pop(request.name, None)
-            self.failed_lbs.discard(request.name)
+        for response in self.lb_provider.revoked_responses:
+            self.active_lbs.discard(response.name)
+            self.failed_lbs.discard(response.name)

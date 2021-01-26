@@ -93,7 +93,7 @@ class LBProvider(VersionedInterface):
         if not self.is_available:
             return None
         request = self.get_request(name)
-        if not self.request.response:
+        if not request.response:
             return None
         return request.response
 
@@ -135,17 +135,17 @@ class LBProvider(VersionedInterface):
         """
         requests = []
         if self.relation:
-            for key in self.relation.data[self.app].keys():
+            for key in sorted(self.relation.data[self.app].keys()):
                 if not key.startswith('request_'):
                     continue
                 requests.append(self.get_request(key[len('request_'):]))
         return requests
 
     @property
-    def revoked_requests(self):
-        """ A list of requests whose responses are no longer available.
+    def revoked_responses(self):
+        """ A list of responses which are no longer available.
         """
-        return [request
+        return [request.response
                 for request in self.all_requests
                 if not request.response
                 and request.name in self.state.response_hashes]
@@ -179,6 +179,9 @@ class LBProvider(VersionedInterface):
 
     def ack_response(self, response):
         """ Acknowledge that a given response has been handled.
+
+        Can be called on a revoked response as well to remove it
+        from the revoked_responses list.
         """
         if response:
             self.state.response_hashes[response.name] = response.hash
@@ -194,7 +197,7 @@ class LBProvider(VersionedInterface):
 
     @property
     def is_changed(self):
-        return self.new_responses or self.revoked_requests
+        return self.new_responses or self.revoked_responses
 
     @property
     def is_available(self):
