@@ -11,6 +11,18 @@ HealthCheckField = v1.HealthCheckField
 Request = v1.Request
 Response = v1.Response
 
+values = {}
+
+
+def is_set_and_changed(key, new):
+    old = values.get(key)
+    values[key] = new
+    return new and new != old
+
+
+def is_not_changed(key, new):
+    return values.get(key) == new
+
 
 def test_request():
     with pytest.raises(TypeError):
@@ -29,14 +41,19 @@ def test_request():
     assert req.version == 1
     assert req.health_checks == []
     assert req.dump()
+    assert req.id is None
+    req.relation = Mock(id='0')
+    assert req.id == '0:name'
 
     hc = HealthCheck()._update(traffic_type='https', port=443)
     req.health_checks.append(hc)
-    assert req.hash == '227e12b7f5eb3388ac931e89a3510285'
+    assert is_set_and_changed('req.hash', req.hash)
+    req.sent_hash = req.hash
+    assert is_set_and_changed('req.hash', req.hash)
     hc.port = 6443
-    assert req.hash == 'f0ab4768bc530703691fa4dd530e97a5'
+    assert is_set_and_changed('req.hash', req.hash)
     req.repsonse = 'foo'
-    assert req.hash == 'f0ab4768bc530703691fa4dd530e97a5'
+    assert is_not_changed('req.hash', req.hash)
 
     req.traffic_type = None
     with pytest.raises(ValidationError):
@@ -47,12 +64,12 @@ def test_request():
     req2 = Request.loads('name', req.dumps(), '{'
                          ' "success": true,'
                          ' "address": "foo",'
-                         ' "request_hash": "f0ab4768bc530703691fa4dd530e97a5"'
-                         '}')
+                         ' "received_hash": "%s"'
+                         '}' % req.sent_hash)
     assert req2.hash == req.hash
     assert req2.response.success
     assert req2.response.address == 'foo'
-    assert req2.response.request_hash == req.hash
+    assert req2.response.received_hash == req.sent_hash
 
 
 def test_response():
@@ -63,31 +80,31 @@ def test_response():
     with pytest.raises(ValidationError):
         Response(request)._update(success=True,
                                   address=None,
-                                  request_hash=None)
+                                  received_hash=None)
     with pytest.raises(ValidationError):
         Response(request)._update(success=True,
                                   address='https://my-lb.aws.com/',
-                                  response_hash='',
+                                  received_hash='',
                                   foo='bar')
     with pytest.raises(ValidationError):
         Response(request)._update(success=False,
                                   address='https://my-lb.aws.com/',
-                                  request_hash='')
+                                  received_hash='')
 
     resp = Response(request)._update(success=True,
                                      address='https://my-lb.aws.com/',
-                                     request_hash='')
+                                     received_hash='')
     assert resp.name == 'name'
-    assert resp.hash == '6718fe59d99020ba3fd5a73efad4ea32'
+    assert is_set_and_changed('resp.hash', resp.hash)
     resp.foo = 'bar'
-    assert resp.hash == '6718fe59d99020ba3fd5a73efad4ea32'
+    assert is_not_changed('resp.hash', resp.hash)
 
     resp.success = False
     with pytest.raises(ValidationError):
         resp.dump()
     assert resp.hash is None
     resp.message = 'foo'
-    assert resp.hash == '2b1db528eccd3b5818032fe8b113d069'
+    assert is_set_and_changed('resp.hash', resp.hash)
 
     resp2 = Response(request)._update(resp.dump())
     assert resp2.hash == resp.hash

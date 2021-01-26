@@ -10,7 +10,7 @@ from ops.framework import (
 from . import schemas
 
 
-class LBBase(Object):
+class VersionedInterface(Object):
     def __init__(self, charm, relation_name):
         super().__init__(charm, relation_name)
         self.charm = weakref.proxy(charm)
@@ -40,7 +40,9 @@ class LBBase(Object):
                 for relation in sorted(relations, key=attrgetter('id'))
                 if self._schema(relation)]
 
-    def _schema(self, relation):
+    def _schema(self, relation=None):
+        if relation is None:
+            return schemas.versions[schemas.max_version]
         if relation.app not in relation.data:
             return None
         data = relation.data[relation.app]

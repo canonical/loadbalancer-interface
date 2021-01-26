@@ -18,7 +18,7 @@ class Response(SchemaWrapper):
         success = fields.Bool(required=True)
         message = fields.Str(missing=None)
         address = fields.Str(missing=None)
-        request_hash = fields.Str(missing=None)
+        received_hash = fields.Str(missing=None)
 
         @validates_schema
         def _validate(self, data, **kwargs):
@@ -72,10 +72,27 @@ class Request(SchemaWrapper):
         tls_key = fields.Str(missing=None)
         ingress_address = fields.Str(missing=None)
         ingress_ports = fields.List(fields.Int(), missing=list)
+        sent_hash = fields.Str(missing=None)
+
+    @classmethod
+    def _from_id(cls, req_id, relations):
+        """ Return an empty Request with the given ID.
+
+        This represents an unknown or removed request.
+        """
+        name, rel_id = req_id.split(':')
+        request = cls(name)
+        request._id = req_id
+        for relation in relations:
+            if relation.id == rel_id:
+                request.relation = relation
+                break
+        return request
 
     def __init__(self, name):
         super().__init__()
         self._name = name
+        self._id = None
         # On the provider side, requests need to track which relation they
         # came from to know where to send the response.
         self.relation = None
@@ -84,6 +101,14 @@ class Request(SchemaWrapper):
     @property
     def name(self):
         return self._name
+
+    @property
+    def id(self):
+        if self._id is None:
+            if self.relation is None:
+                return None
+            self._id = '{}:{}'.format(self.relation.id, self.name)
+        return self._id
 
     @classmethod
     def loads(cls, name, request_sdata, response_sdata=None):
