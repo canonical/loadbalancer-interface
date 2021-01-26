@@ -36,16 +36,18 @@ def test_interface():
                 src = src.name
             harness.update_relation_data(harness._rid, src, data)
 
-    def transmit_rel_data(src_harness, dest_harness):
-        data = {
-            src_harness.charm.app: get_rel_data(src_harness,
-                                                src_harness.charm.app),
-            src_harness.charm.unit: get_rel_data(src_harness,
-                                                 src_harness.charm.unit),
-        }
-        data.update({unit: get_rel_data(src_harness, unit)
-                     for unit in peer_units[src_harness]})
-        update_rel_data(dest_harness, data)
+    def transmit_rel_data(src_harness, dst_harness):
+        data = {}
+        for src in [src_harness.charm.app,
+                    src_harness.charm.unit] + peer_units[src_harness]:
+            src_data = get_rel_data(src_harness, src)
+            dst_data = get_rel_data(dst_harness, src)
+            # Removed keys have to be explicitly set to an empty string for the
+            # harness to remove them. (TODO: file upstream bug)
+            for removed in dst_data.keys() - src_data.keys():
+                src_data[removed] = ''
+            data[src] = src_data
+        update_rel_data(dst_harness, data)
 
     p_charm = provider.charm
     p_app = p_charm.app
@@ -103,7 +105,7 @@ def test_interface():
     assert not c_charm.active_lbs
     assert not c_charm.failed_lbs
     transmit_rel_data(provider, consumer)
-    assert c_charm.active_lbs == {'lb-foo': 1}
+    assert c_charm.active_lbs == {'foo': ['lb-foo', 1]}
     assert not c_charm.failed_lbs
 
     # Test updating the request and getting an updated response.
@@ -111,7 +113,7 @@ def test_interface():
     transmit_rel_data(consumer, provider)
     assert p_charm.managed_lbs[foo_id].backends == ['192.168.0.5']
     transmit_rel_data(provider, consumer)
-    assert c_charm.active_lbs == {'lb-foo': 2}
+    assert c_charm.active_lbs == {'foo': ['lb-foo', 2]}
     assert not c_charm.failed_lbs
 
     # Test sending a second request
@@ -119,8 +121,21 @@ def test_interface():
     transmit_rel_data(consumer, provider)
     transmit_rel_data(provider, consumer)
     assert bar_id in p_charm.managed_lbs
-    assert c_charm.active_lbs == {'lb-foo': 2}
+    assert c_charm.active_lbs == {'foo': ['lb-foo', 2]}
     assert c_charm.failed_lbs == {'bar'}
+
+    # Test request removal
+    c_charm.lb_provider.remove_request('bar')
+    transmit_rel_data(consumer, provider)
+    assert foo_id in p_charm.managed_lbs
+    assert bar_id not in p_charm.managed_lbs
+    assert len(p_charm.lb_consumers.all_requests) == 1
+
+    # Test response revocation
+    req = p_charm.lb_consumers.all_requests[0]
+    p_charm.lb_consumers.revoke_response(req)
+    transmit_rel_data(provider, consumer)
+    assert not c_charm.active_lbs
 
 
 class ProviderCharm(CharmBase):
@@ -136,11 +151,11 @@ class ProviderCharm(CharmBase):
         self.lb_consumers = LBConsumers(self, 'lb-consumers')
 
         self.framework.observe(self.lb_consumers.on.requests_changed,
-                               self._create_lbs)
+                               self._update_lbs)
 
         self.managed_lbs = {}
 
-    def _create_lbs(self, event):
+    def _update_lbs(self, event):
         for request in self.lb_consumers.new_requests:
             if request.name == 'foo':
                 request.response.success = True
@@ -150,6 +165,9 @@ class ProviderCharm(CharmBase):
                 request.response.message = 'No reason'
             self.managed_lbs[request.id] = request
             self.lb_consumers.send_response(request)
+        for request in self.lb_consumers.removed_requests:
+            self.managed_lbs.pop(request.id, None)
+            self.lb_consumers.revoke_response(request)
 
 
 class ConsumerCharm(CharmBase):
@@ -162,10 +180,11 @@ class ConsumerCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self._to_break = False
         self.lb_provider = LBProvider(self, 'lb-provider')
 
         self.framework.observe(self.lb_provider.on.responses_changed,
-                               self._get_lb)
+                               self._update_lbs)
 
         self.saw_available = False
         self.active_lbs = dict()
@@ -179,11 +198,15 @@ class ConsumerCharm(CharmBase):
             request.backends = backends
         self.lb_provider.send_request(request)
 
-    def _get_lb(self, event):
+    def _update_lbs(self, event):
         for response in self.lb_provider.new_responses:
             if response.success:
-                self.active_lbs.setdefault(response.address, 0)
-                self.active_lbs[response.address] += 1
+                self.active_lbs.setdefault(response.name,
+                                           [response.address, 0])
+                self.active_lbs[response.name][1] += 1
             else:
                 self.failed_lbs.add(response.name)
             self.lb_provider.ack_response(response)
+        for request in self.lb_provider.revoked_requests:
+            self.active_lbs.pop(request.name, None)
+            self.failed_lbs.discard(request.name)

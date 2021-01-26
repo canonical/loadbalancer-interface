@@ -35,11 +35,13 @@ def test_request():
 
     hc = HealthCheck()._update(traffic_type='https', port=443)
     req.health_checks.append(hc)
-    assert req.hash == '227e12b7f5eb3388ac931e89a3510285'
+    assert req.hash == 'af61d5d3e4f6491417370adc02d9707a'
+    req.nonce = req.hash
+    assert req.hash == 'f6291062edc7734366ed1269a31f8971'
     hc.port = 6443
-    assert req.hash == 'f0ab4768bc530703691fa4dd530e97a5'
+    assert req.hash == 'ff0d4439b67c47e3e4cccd6d719eb467'
     req.repsonse = 'foo'
-    assert req.hash == 'f0ab4768bc530703691fa4dd530e97a5'
+    assert req.hash == 'ff0d4439b67c47e3e4cccd6d719eb467'
 
     req.traffic_type = None
     with pytest.raises(ValidationError):
@@ -50,12 +52,12 @@ def test_request():
     req2 = Request.loads('name', req.dumps(), '{'
                          ' "success": true,'
                          ' "address": "foo",'
-                         ' "request_hash": "f0ab4768bc530703691fa4dd530e97a5"'
+                         ' "nonce": "af61d5d3e4f6491417370adc02d9707a"'
                          '}')
     assert req2.hash == req.hash
     assert req2.response.success
     assert req2.response.address == 'foo'
-    assert req2.response.request_hash == req.hash
+    assert req2.response.nonce == req.nonce
 
 
 def test_response():
@@ -66,31 +68,31 @@ def test_response():
     with pytest.raises(ValidationError):
         Response(request)._update(success=True,
                                   address=None,
-                                  request_hash=None)
+                                  nonce=None)
     with pytest.raises(ValidationError):
         Response(request)._update(success=True,
                                   address='https://my-lb.aws.com/',
-                                  response_hash='',
+                                  nonce='',
                                   foo='bar')
     with pytest.raises(ValidationError):
         Response(request)._update(success=False,
                                   address='https://my-lb.aws.com/',
-                                  request_hash='')
+                                  nonce='')
 
     resp = Response(request)._update(success=True,
                                      address='https://my-lb.aws.com/',
-                                     request_hash='')
+                                     nonce='')
     assert resp.name == 'name'
-    assert resp.hash == '6718fe59d99020ba3fd5a73efad4ea32'
+    assert resp.hash == 'a9f96770e9b5066fd02fa2d1284a19fb'
     resp.foo = 'bar'
-    assert resp.hash == '6718fe59d99020ba3fd5a73efad4ea32'
+    assert resp.hash == 'a9f96770e9b5066fd02fa2d1284a19fb'
 
     resp.success = False
     with pytest.raises(ValidationError):
         resp.dump()
     assert resp.hash is None
     resp.message = 'foo'
-    assert resp.hash == '2b1db528eccd3b5818032fe8b113d069'
+    assert resp.hash == 'd33c2b74d4d62cba643f13ab990827e5'
 
     resp2 = Response(request)._update(resp.dump())
     assert resp2.hash == resp.hash

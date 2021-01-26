@@ -40,7 +40,9 @@ class VersionedInterface(Object):
                 for relation in sorted(relations, key=attrgetter('id'))
                 if self._schema(relation)]
 
-    def _schema(self, relation):
+    def _schema(self, relation=None):
+        if relation is None:
+            return schemas.versions[schemas.max_version]
         if relation.app not in relation.data:
             return None
         data = relation.data[relation.app]

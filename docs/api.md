@@ -31,8 +31,9 @@ When instantiated, it should be passed a charm instance and a relation name.
 
   * `is_available` Whether the provider is available to take requests
   * `is_changed` Whether there are any new or changed responses which have not been acknowledged
-  * `all_responses` A list of all received responses, even if they have not changed
-  * `new_responses` A list of all responses which are new or have changed and not been acknowledged
+  * `all_responses` A list of all received responses
+  * `complete_responses` A list of all up to date received responses, even if they have not changed
+  * `new_responses` A list of all complete responses which are new or have changed and not been acknowledged
 
 ### Flags
 

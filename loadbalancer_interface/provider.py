@@ -52,8 +52,11 @@ class LBProvider(VersionedInterface):
                 self.on.available.emit()
             if self.is_changed:
                 self.on.responses_changed.emit()
-        else:
+        elif self.state.was_available:
             self.state.was_available = False
+            if self.state.response_hashes:
+                self.state.response_hashes = {}
+                self.on.responses_changed.emit()
 
     @property
     def relation(self):
@@ -61,6 +64,8 @@ class LBProvider(VersionedInterface):
 
     def get_request(self, name):
         """ Get or create a Load Balancer Request object.
+
+        May raise a ModelError if unable to create a request.
         """
         if not self.charm.unit.is_leader():
             raise ModelError('Unit is not leader')
@@ -82,48 +87,104 @@ class LBProvider(VersionedInterface):
     def get_response(self, name):
         """ Get a specific Load Balancer Response by name.
 
-        This is equivalent to `get_request(name).response`.
+        This is equivalent to `get_request(name).response`, except that it
+        will return `None` if the response is not available.
         """
-        return self.get_request(name).response
+        if not self.is_available:
+            return None
+        request = self.get_request(name)
+        if not self.request.response:
+            return None
+        return request.response
 
     def send_request(self, request):
         """ Send a specific request.
+
+        May raise a ModelError if unable to send the request.
         """
         if not self.charm.unit.is_leader():
             raise ModelError('Unit is not leader')
         if not self.relation:
             raise ModelError('Relation not available')
+        # The nonce is used to indicate to the provider that the request has
+        # changed, and for us to be able to tell when an updated request has a
+        # corresponding updated response. We can't used the request hash
+        # computed on the providing side because it may not match due to
+        # default values being filled in on that side (e.g., the backend
+        # addresses).
+        request.nonce = request.hash
         key = 'request_' + request.name
         self.relation.data[self.app][key] = request.dumps()
-        self.state.response_hashes[request.name] = None
+
+    def remove_request(self, name):
+        """ Remove a specific request.
+
+        May raise a ModelError if unable to remove the request.
+        """
+        if not self.charm.unit.is_leader():
+            raise ModelError('Unit is not leader')
+        if not self.relation:
+            return
+        key = 'request_' + name
+        self.relation.data[self.app].pop(key, None)
+        self.state.response_hashes.pop(name, None)
+
+    @property
+    def all_requests(self):
+        """ A list of all requests which have been made.
+        """
+        requests = []
+        if self.relation:
+            for key in self.relation.data[self.app].keys():
+                if not key.startswith('request_'):
+                    continue
+                requests.append(self.get_request(key[len('request_'):]))
+        return requests
+
+    @property
+    def revoked_requests(self):
+        """ A list of requests whose responses are no longer available.
+        """
+        return [request
+                for request in self.all_requests
+                if not request.response
+                and request.name in self.state.response_hashes]
 
     @cached_property
     def all_responses(self):
         """ A list of all responses which are available.
         """
-        if not self.relation:
-            return []
-        local_data = self.relation.data[self.app]
-        names = [key[len('request_'):]
-                 for key in local_data.keys()
-                 if key.startswith('request_')]
-        requests = [self.get_request(name) for name in names]
-        return [request.response for request in requests if request.response]
+        return [request.response
+                for request in self.all_requests
+                if request.response]
+
+    @cached_property
+    def complete_responses(self):
+        """ A list of all responses which are up to date with their associated
+        request.
+        """
+        return [request.response
+                for request in self.all_requests
+                if request.response.nonce == request.nonce]
 
     @property
     def new_responses(self):
-        """ A list of all responses which have not yet been acknowledged as
+        """ A list of complete responses which have not yet been acknowledged as
         handled or which have changed.
         """
+        acked_responses = self.state.response_hashes
         return [response
-                for response in self.all_responses
-                if self.state.response_hashes[response.name] != response.hash]
+                for response in self.complete_responses
+                if response.hash != acked_responses.get(response.name)]
 
     def ack_response(self, response):
         """ Acknowledge that a given response has been handled.
         """
-        self.state.response_hashes[response.name] = response.hash
-        if not self.new_responses:
+        if response:
+            self.state.response_hashes[response.name] = response.hash
+        else:
+            self.state.response_hashes.pop(response.name, None)
+        if not self.is_changed:
             try:
                 from charms.reactive import clear_flag
                 prefix = 'endpoint.' + self.relation_name
@@ -133,7 +194,7 @@ class LBProvider(VersionedInterface):
 
     @property
     def is_changed(self):
-        return bool(self.new_responses)
+        return self.new_responses or self.revoked_requests
 
     @property
     def is_available(self):
