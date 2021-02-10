@@ -12,6 +12,7 @@ SETUP = {
         "ops>=1.0.0",
         "cached_property",
         "marshmallow",
+        "marshmallow-enum",
         "ops_reactive_interface",
     ],
     "entry_points": {

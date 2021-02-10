@@ -77,6 +77,15 @@ Represents a request for a load balancer.
 
 Acquired from `LBProvider.get_request(name)`, `LBConsumers.all_requests`, or `LBConsumers.new_requests`.
 
+### Class Attributes
+
+  * `protocols` An Enum of possible values for the Request or HealthCheck `protocol` field.
+    Can be one of:
+    * `protocols.tcp`
+    * `protocols.udp`
+    * `protocols.http`
+    * `protocols.https`
+
 ### Properties
 
   * `name` Name of the request (`str`, read-only)
@@ -85,7 +94,7 @@ Acquired from `LBProvider.get_request(name)`, `LBConsumers.all_requests`, or `LB
 
 ### Fields
 
-  * `traffic_type` Type of traffic to route (`str`, required)
+  * `protocol` Type of traffic to route (`Request.protocols`, required)
   * `backends` List of backend addresses (`str`s, default: every units' `ingress-address`)
   * `port_mapping` Mapping of ingress ports to backend ports (`dict[int -> int]`, required)
   * `algorithm` List of traffic distribution algorithms, in order of preference (`str`s, optional)
@@ -110,7 +119,7 @@ Acquired from `Request.add_health_check()`, or `Request.health_checks`.
 
 ### Fields
 
-  * `traffic_type` Type of traffic to use to make the check (e.g., "https", "udp", etc.) (`str`, required)
+  * `protocol` Type of traffic to use to make the check (e.g., "https", "udp", etc.) (`Request.protocols`, required)
   * `port` Port to check on (`int`, required)
   * `path` Path on the backend to check (e.g., for "https" or "http" types) (`str`, optional)
   * `interval` How many seconds to wait between checks (`int`, default: 30)

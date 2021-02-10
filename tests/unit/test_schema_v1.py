@@ -28,14 +28,16 @@ def test_request():
     with pytest.raises(TypeError):
         Request(foo="foo")
     with pytest.raises(ValidationError):
-        Request("name")._update(traffic_type="https", port_mapping={"none": "none"})
+        Request("name")._update(
+            protocol=Request.protocols.https, port_mapping={"none": "none"}
+        )
     with pytest.raises(ValidationError):
         Request("name")._update(
-            traffic_type="https", port_mapping={443: 443}, foo="bar"
+            protocol=Request.protocols.https, port_mapping={443: 443}, foo="bar"
         )
 
     req = Request("name")
-    req.traffic_type = "https"
+    req.protocol = req.protocols.https
     req.port_mapping = {443: 443}
     assert req.version == 1
     assert req.health_checks == []
@@ -44,7 +46,7 @@ def test_request():
     req.relation = Mock(id="0")
     assert req.id == "0:name"
 
-    hc = HealthCheck()._update(traffic_type="https", port=443)
+    hc = HealthCheck()._update(protocol=req.protocols.https, port=443)
     req.health_checks.append(hc)
     assert is_set_and_changed("req.hash", req.hash)
     req.sent_hash = req.hash
@@ -54,11 +56,11 @@ def test_request():
     req.repsonse = "foo"
     assert is_not_changed("req.hash", req.hash)
 
-    req.traffic_type = None
+    req.protocol = None
     with pytest.raises(ValidationError):
         req.dump()
     assert req.hash is None
-    req.traffic_type = "https"
+    req.protocol = req.protocols.https
 
     req2 = Request.loads(
         "name",
@@ -114,29 +116,29 @@ def test_health_check():
     with pytest.raises(TypeError):
         HealthCheck("foo")
     with pytest.raises(TypeError):
-        HealthCheck(traffic_type="foo")
+        HealthCheck(protocol="foo")
     with pytest.raises(ValidationError):
         HealthCheck().dump()
     with pytest.raises(ValidationError):
         hc = HealthCheck()
-        hc.traffic_type = "https"
+        hc.protocol = Request.protocols.https
         hc.port = "none"
         hc.dump()
     with pytest.raises(ValidationError):
-        HealthCheck()._update(traffic_type="https", port=443, foo="bar")
+        HealthCheck()._update(protocol=Request.protocols.https, port=443, foo="bar")
 
-    hc = HealthCheck()._update(traffic_type="https", port=443)
+    hc = HealthCheck()._update(protocol=Request.protocols.https, port=443)
     assert hc.version == 1
-    assert hc.traffic_type == "https"
+    assert hc.protocol == Request.protocols.https
     assert hc.port == 443
     assert hc.path is None
     assert hc.interval == 30
     assert hc.retries == 3
 
     hc = HealthCheck()._update(
-        traffic_type="http", port=80, path="/foo", interval=60, retries=5
+        protocol=Request.protocols.http, port=80, path="/foo", interval=60, retries=5
     )
-    assert hc.traffic_type == "http"
+    assert hc.protocol == Request.protocols.http
     assert hc.port == 80
     assert hc.path == "/foo"
     assert hc.interval == 60
