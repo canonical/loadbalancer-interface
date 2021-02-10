@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 
 from marshmallow import (
     Schema,
@@ -6,11 +7,19 @@ from marshmallow import (
     validates_schema,
     ValidationError,
 )
+from marshmallow_enum import EnumField
 
 from .base import SchemaWrapper
 
 
 version = 1
+
+
+class protocols(Enum):
+    tcp = "tcp"
+    udp = "udp"
+    http = "http"
+    https = "https"
 
 
 class Response(SchemaWrapper):
@@ -41,7 +50,7 @@ class Response(SchemaWrapper):
 
 class HealthCheck(SchemaWrapper):
     class _Schema(Schema):
-        traffic_type = fields.Str(required=True)
+        protocol = EnumField(protocols, by_value=True, required=True)
         port = fields.Int(required=True)
         path = fields.Str(missing=None)
         interval = fields.Int(missing=30)
@@ -59,8 +68,10 @@ class HealthCheckField(fields.Field):
 
 
 class Request(SchemaWrapper):
+    protocols = protocols
+
     class _Schema(Schema):
-        traffic_type = fields.Str(required=True)
+        protocol = EnumField(protocols, by_value=True, required=True)
         backends = fields.List(fields.Str(), missing=list)
         port_mapping = fields.Dict(
             keys=fields.Int(), values=fields.Int(), required=True

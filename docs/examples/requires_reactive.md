@@ -21,7 +21,7 @@ from charms import layer
 def request_lb():
     lb_provider = endpoint_from_name('lb-provider')
     lb_provider.get_request('my-service')
-    request.traffic_type = 'https'
+    request.protocol = request.protocols.https
     request.port_mapping = {443: 443}
     lb_provider.send_request(request)
 
