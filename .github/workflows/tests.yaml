@@ -4,8 +4,22 @@ on:
   - pull_request
 
 jobs:
-  lint-unit-and-func-tests:
-    name: Lint, Unit, & Functional Tests
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    - name: Setup Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+    - name: Install Tox
+      run: pip install tox
+    - name: Run lint
+      run: tox -e lint
+  unit-and-func-tests:
+    name: Unit, & Functional Tests
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -19,8 +33,8 @@ jobs:
         python-version: ${{ matrix.python }}
     - name: Install Tox
       run: pip install tox
-    - name: Run lint, unit, and functional tests
-      run: tox
+    - name: Run unit & functional tests
+      run: tox -e unit,functional
 
   # TODO
   #integration-test:
