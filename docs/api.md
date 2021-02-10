@@ -87,7 +87,7 @@ Acquired from `LBProvider.get_request(name)`, `LBConsumers.all_requests`, or `LB
 
   * `traffic_type` Type of traffic to route (`str`, required)
   * `backends` List of backend addresses (`str`s, default: every units' `ingress-address`)
-  * `backend_ports` List of ports or `range`s to route (`int`s or `range(int, int)`, required)
+  * `port_mapping` Mapping of ingress ports to backend ports (`dict[int -> int]`, required)
   * `algorithm` List of traffic distribution algorithms, in order of preference (`str`s, optional)
   * `sticky` Whether traffic "sticks" to a given backend (`bool`, default: `False`)
   * `health_checks` List of `HealthCheck` objects (see below, optional)
@@ -96,7 +96,6 @@ Acquired from `LBProvider.get_request(name)`, `LBConsumers.all_requests`, or `LB
   * `tls_cert` If TLS termination is enabled, a manually provided cert (`str`, optional)
   * `tls_key` If TLS termination is enabled, a manually provided key (`str`, optional)
   * `ingress_address` A manually provided ingress address (optional, may not be supported)
-  * `ingress_ports` A list of ingress ports or `range`s (`int`s or `range(int, int)`; default: `backend_ports`)
 
 ### Methods
 

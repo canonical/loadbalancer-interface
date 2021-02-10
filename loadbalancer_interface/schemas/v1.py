@@ -62,7 +62,9 @@ class Request(SchemaWrapper):
     class _Schema(Schema):
         traffic_type = fields.Str(required=True)
         backends = fields.List(fields.Str(), missing=list)
-        backend_ports = fields.List(fields.Int(), required=True)
+        port_mapping = fields.Dict(
+            keys=fields.Int(), values=fields.Int(), required=True
+        )
         algorithm = fields.List(fields.Str(), missing=list)
         sticky = fields.Bool(missing=False)
         health_checks = fields.List(HealthCheckField, missing=list)
@@ -71,7 +73,6 @@ class Request(SchemaWrapper):
         tls_cert = fields.Str(missing=None)
         tls_key = fields.Str(missing=None)
         ingress_address = fields.Str(missing=None)
-        ingress_ports = fields.List(fields.Int(), missing=list)
         sent_hash = fields.Str(missing=None)
 
     @classmethod

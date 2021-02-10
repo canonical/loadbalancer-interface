@@ -28,13 +28,15 @@ def test_request():
     with pytest.raises(TypeError):
         Request(foo="foo")
     with pytest.raises(ValidationError):
-        Request("name")._update(traffic_type="https", backend_ports=["none"])
+        Request("name")._update(traffic_type="https", port_mapping={"none": "none"})
     with pytest.raises(ValidationError):
-        Request("name")._update(traffic_type="https", backend_ports=[443], foo="bar")
+        Request("name")._update(
+            traffic_type="https", port_mapping={443: 443}, foo="bar"
+        )
 
     req = Request("name")
     req.traffic_type = "https"
-    req.backend_ports = [443]
+    req.port_mapping = {443: 443}
     assert req.version == 1
     assert req.health_checks == []
     assert req.dump()
