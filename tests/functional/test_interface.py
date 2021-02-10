@@ -221,7 +221,7 @@ class ConsumerCharm(CharmBase):
     def request_lb(self, name, backends=None):
         request = self.lb_provider.get_request(name)
         request.traffic_type = "https"
-        request.backend_ports = [443]
+        request.port_mapping = {443: 443}
         if backends is not None:
             request.backends = backends
         self.lb_provider.send_request(request)

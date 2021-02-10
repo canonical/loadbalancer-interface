@@ -34,7 +34,7 @@ class MyCharm(CharmBase):
     def _request_lb(self, event):
         request = self.lb_provider.get_request('my-service')
         request.traffic_type = 'https'
-        request.backend_ports = [443]
+        request.port_mapping = {443: 443}
         self.lb_provider.send_request(request)
 
     def _get_lb(self, event):
