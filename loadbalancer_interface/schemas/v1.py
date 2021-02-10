@@ -22,10 +22,10 @@ class Response(SchemaWrapper):
 
         @validates_schema
         def _validate(self, data, **kwargs):
-            if data['success'] and not data['address']:
-                raise ValidationError('address required on success')
-            if not data['success'] and not data['message']:
-                raise ValidationError('message required on failure')
+            if data["success"] and not data["address"]:
+                raise ValidationError("address required on success")
+            if not data["success"] and not data["message"]:
+                raise ValidationError("message required on failure")
 
     def __init__(self, request):
         super().__init__()
@@ -76,11 +76,11 @@ class Request(SchemaWrapper):
 
     @classmethod
     def _from_id(cls, req_id, relations):
-        """ Return an empty Request with the given ID.
+        """Return an empty Request with the given ID.
 
         This represents an unknown or removed request.
         """
-        name, rel_id = req_id.split(':')
+        name, rel_id = req_id.split(":")
         request = cls(name)
         request._id = req_id
         for relation in relations:
@@ -107,7 +107,7 @@ class Request(SchemaWrapper):
         if self._id is None:
             if self.relation is None:
                 return None
-            self._id = '{}:{}'.format(self.relation.id, self.name)
+            self._id = "{}:{}".format(self.relation.id, self.name)
         return self._id
 
     @classmethod
@@ -119,8 +119,7 @@ class Request(SchemaWrapper):
         return self
 
     def add_health_check(self, **kwargs):
-        """ Create a HealthCheck and add it to the list.
-        """
+        """Create a HealthCheck and add it to the list."""
         health_check = HealthCheck()._update(kwargs)
         self.health_checks.append(health_check)
         return health_check

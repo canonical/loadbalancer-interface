@@ -39,7 +39,7 @@ class SchemaWrapper:
         for field_name, field in self._schema.fields.items():
             value = getattr(self, field_name, None)
             try:
-                if hasattr(field, '_validated'):
+                if hasattr(field, "_validated"):
                     # For some reason, some field types do their validation in
                     # a `_validated` method, rather than in the `_validate`
                     # from the base Field class. For those, calling `_validate`
@@ -64,6 +64,6 @@ class SchemaWrapper:
     @property
     def hash(self):
         try:
-            return md5(self.dumps().encode('utf8')).hexdigest()
+            return md5(self.dumps().encode("utf8")).hexdigest()
         except ValidationError:
             return None
