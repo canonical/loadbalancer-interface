@@ -204,6 +204,10 @@ class LBProvider(VersionedInterface):
         return bool(self.relation)
 
     @property
+    def has_response(self):
+        return bool(self.complete_respsonse)
+
+    @property
     def can_request(self):
         return self.is_available and self.unit.is_leader()
 
@@ -213,4 +217,5 @@ class LBProvider(VersionedInterface):
 
         prefix = "endpoint." + self.relation_name
         toggle_flag(prefix + ".available", self.is_available)
-        toggle_flag(prefix + ".responses_changed", self.is_changed)
+        toggle_flag(prefix + ".response.available", self.has_response)
+        toggle_flag(prefix + ".response.changed", self.is_changed)

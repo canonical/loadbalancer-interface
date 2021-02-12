@@ -15,26 +15,53 @@ from .base import SchemaWrapper
 version = 1
 
 
-class protocols(Enum):
+class Protocols(Enum):
     tcp = "tcp"
     udp = "udp"
     http = "http"
     https = "https"
 
+    def __str__(self):
+        return self.value
+
+
+class ErrorTypes(Enum):
+    unsupported = "unsupported"
+    provider_error = "provider error"
+
+    def __str__(self):
+        return self.value
+
 
 class Response(SchemaWrapper):
+    error_types = ErrorTypes
+
     class _Schema(Schema):
-        success = fields.Bool(required=True)
-        message = fields.Str(missing=None)
+        error = EnumField(ErrorTypes, missing=None)
+        error_message = fields.Str(missing=None)
+        error_fields = fields.Dict(key=fields.Str, value=fields.Str, missing=dict)
         address = fields.Str(missing=None)
         received_hash = fields.Str(missing=None)
 
         @validates_schema
         def _validate(self, data, **kwargs):
-            if data["success"] and not data["address"]:
+            if not data["error"] and not data["address"]:
                 raise ValidationError("address required on success")
-            if not data["success"] and not data["message"]:
-                raise ValidationError("message required on failure")
+            if data["error"] and not (data["error_message"] or data["error_fields"]):
+                raise ValidationError(
+                    "error_message or error_fields required on failure"
+                )
+            request_fields = Request._Schema().fields
+            unknown_fields = data["error_fields"].keys() - request_fields.keys()
+            if unknown_fields:
+                s = "s" if len(unknown_fields) > 1 else ""
+                raise ValidationError(
+                    {
+                        "error_fields": "Unknown field{}: {}".format(
+                            s, ", ".join(unknown_fields)
+                        )
+                    }
+                )
 
     def __init__(self, request):
         super().__init__()
@@ -50,7 +77,7 @@ class Response(SchemaWrapper):
 
 class HealthCheck(SchemaWrapper):
     class _Schema(Schema):
-        protocol = EnumField(protocols, by_value=True, required=True)
+        protocol = EnumField(Protocols, by_value=True, required=True)
         port = fields.Int(required=True)
         path = fields.Str(missing=None)
         interval = fields.Int(missing=30)
@@ -68,10 +95,10 @@ class HealthCheckField(fields.Field):
 
 
 class Request(SchemaWrapper):
-    protocols = protocols
+    protocols = Protocols
 
     class _Schema(Schema):
-        protocol = EnumField(protocols, by_value=True, required=True)
+        protocol = EnumField(Protocols, by_value=True, required=True)
         backends = fields.List(fields.Str(), missing=list)
         port_mapping = fields.Dict(
             keys=fields.Int(), values=fields.Int(), required=True

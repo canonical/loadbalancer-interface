@@ -65,14 +65,10 @@ def test_request():
     req2 = Request.loads(
         "name",
         req.dumps(),
-        "{"
-        ' "success": true,'
-        ' "address": "foo",'
-        ' "received_hash": "%s"'
-        "}" % req.sent_hash,
+        '{"address": "foo", "received_hash": "%s"}' % req.sent_hash,
     )
     assert req2.hash == req.hash
-    assert req2.response.success
+    assert not req2.response.error
     assert req2.response.address == "foo"
     assert req2.response.received_hash == req.sent_hash
 
@@ -83,29 +79,29 @@ def test_response():
     with pytest.raises(TypeError):
         Response()
     with pytest.raises(ValidationError):
-        Response(request)._update(success=True, address=None, received_hash=None)
+        Response(request)._update()
     with pytest.raises(ValidationError):
-        Response(request)._update(
-            success=True, address="https://my-lb.aws.com/", received_hash="", foo="bar"
-        )
+        Response(request)._update(address="https://my-lb.aws.com/", foo="bar")
     with pytest.raises(ValidationError):
-        Response(request)._update(
-            success=False, address="https://my-lb.aws.com/", received_hash=""
-        )
+        Response(request)._update(error=Response.error_types.unsupported)
 
-    resp = Response(request)._update(
-        success=True, address="https://my-lb.aws.com/", received_hash=""
-    )
+    resp = Response(request)._update(address="https://my-lb.aws.com/", received_hash="")
     assert resp.name == "name"
     assert is_set_and_changed("resp.hash", resp.hash)
     resp.foo = "bar"
     assert is_not_changed("resp.hash", resp.hash)
 
-    resp.success = False
+    resp.error = resp.error_types.unsupported
     with pytest.raises(ValidationError):
         resp.dump()
     assert resp.hash is None
-    resp.message = "foo"
+    resp.error_message = "foo"
+    assert is_set_and_changed("resp.hash", resp.hash)
+    resp.error_message = None
+    resp.error_fields = {"foo": "unknown"}
+    with pytest.raises(ValidationError):
+        resp.dump()
+    resp.error_fields = {"public": "not supported"}
     assert is_set_and_changed("resp.hash", resp.hash)
 
     resp2 = Response(request)._update(resp.dump())

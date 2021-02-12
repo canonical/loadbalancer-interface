@@ -189,11 +189,10 @@ class ProviderCharm(CharmBase):
             self.changes.setdefault(request.name, 0)
             self.changes[request.name] += 1
             if request.name == "foo":
-                request.response.success = True
                 request.response.address = "lb-" + request.name
             else:
-                request.response.success = False
-                request.response.message = "No reason"
+                request.response.error = request.response.error_types.unsupported
+                request.response.error_message = "No reason"
             self.lb_consumers.send_response(request)
         for request in self.lb_consumers.removed_requests:
             self.lb_consumers.revoke_response(request)
@@ -230,7 +229,7 @@ class ConsumerCharm(CharmBase):
         for response in self.lb_provider.new_responses:
             self.changes.setdefault(response.name, 0)
             self.changes[response.name] += 1
-            if response.success:
+            if not response.error:
                 self.active_lbs.add(response.name)
                 self.failed_lbs.discard(response.name)
             else:
