@@ -1,0 +1,5 @@
+options:
+  public:
+    type: boolean
+    default: false
+    description: "public"

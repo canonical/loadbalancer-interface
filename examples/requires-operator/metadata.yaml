@@ -1,0 +1,11 @@
+name: requires-operator
+summary: "test"
+description: "test"
+maintainers: ["foo <foo@bar.com>"]
+tags: ["test"]
+series:
+  - focal
+requires:  # consumes a LB from a provider
+  lb-provider:
+    interface: loadbalancer
+    limit: 1  # only supports a single LB provider per relation endpoint
