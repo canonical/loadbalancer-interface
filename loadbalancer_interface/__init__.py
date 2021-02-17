@@ -1,2 +1,2 @@
-from .provider import LBProvider  # noqa
-from .consumer import LBConsumers  # noqa
+from .requires import LBProvider  # noqa
+from .provides import LBConsumers  # noqa
