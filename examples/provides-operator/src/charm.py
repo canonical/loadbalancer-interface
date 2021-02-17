@@ -3,7 +3,8 @@
 import logging
 
 from ops.charm import CharmBase
-from ops.model import ActiveStatus
+from ops.main import main
+from ops.model import ActiveStatus, MaintenanceStatus
 
 from loadbalancer_interface import LBConsumers
 
@@ -20,6 +21,7 @@ class ProvidesOperatorCharm(CharmBase):
         self.unit.status = ActiveStatus()
 
     def _provide_lbs(self, event):
+        self.unit.status = MaintenanceStatus("processing requests")
         for request in self.lb_consumers.new_requests:
             response = request.response
             if request.public:
@@ -29,6 +31,15 @@ class ProvidesOperatorCharm(CharmBase):
                 try:
                     response.address = self._create_lb(request)
                 except Exception as e:
+                    log.exception("Error creating load balancer")
                     response.error = response.error_types.provider_error
                     response.error_message = str(e)
             self.lb_consumers.send_response(request)
+        self.unit.status = ActiveStatus()
+
+    def _create_lb(self, request):
+        return "dummy-lb"
+
+
+if __name__ == "__main__":
+    main(ProvidesOperatorCharm)

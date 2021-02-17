@@ -18,7 +18,8 @@ When instantiated, it should be passed a charm instance and a relation name.
 ### Events
 
   * `available` Emitted once the provider is available to take requests
-  * `responses_changed` Emitted whenever one or more responses have been received or updated
+  * `response_available` Emitted the first time a complete response becomes available
+  * `response_changed` Emitted whenever one or more responses have been received or updated
 
 ### Methods
 

@@ -1,2 +1,1 @@
-ops
 file://{{ lib_path }}#egg=loadbalancer_interface

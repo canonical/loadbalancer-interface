@@ -7,7 +7,10 @@ SETUP = {
     "author": "Cory Johns",
     "author_email": "cory.johns@canonical.com",
     "url": "https://github.com/juju-solutions/loadbalancer-interface",
-    "py_modules": ["loadbalancer_interface"],
+    "packages": [
+        "loadbalancer_interface",
+        "loadbalancer_interface.schemas",
+    ],
     "install_requires": [
         "ops>=1.0.0",
         "cached_property",
@@ -16,8 +19,8 @@ SETUP = {
         "ops_reactive_interface",
     ],
     "entry_points": {
-        "ops_reactive_interface.provides": "loadbalancer = loadbalancer_interface:LBProducer",  # noqa
-        "ops_reactive_interface.requires": "loadbalancer = loadbalancer_interface:LBConsumer",  # noqa
+        "ops_reactive_interface.provides": "loadbalancer = loadbalancer_interface:LBConsumers",  # noqa
+        "ops_reactive_interface.requires": "loadbalancer = loadbalancer_interface:LBProvider",  # noqa
     },
     "license": "Apache License 2.0",
     "description": "'loadbalancer' interface protocol API library",

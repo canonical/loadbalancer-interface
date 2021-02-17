@@ -168,6 +168,7 @@ def test_interface():
     assert not c_charm.active_lbs
 
 
+# TODO: Replace these with the example charms.
 class ProviderCharm(CharmBase):
     _meta = """
         name: provider
@@ -211,7 +212,7 @@ class ConsumerCharm(CharmBase):
         self._to_break = False
         self.lb_provider = LBProvider(self, "lb-provider")
 
-        self.framework.observe(self.lb_provider.on.responses_changed, self._update_lbs)
+        self.framework.observe(self.lb_provider.on.response_changed, self._update_lbs)
 
         self.changes = {}
         self.active_lbs = set()
