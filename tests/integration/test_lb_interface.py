@@ -9,8 +9,7 @@ log = logging.getLogger(__name__)
 
 
 class LBIntegrationTest(OperatorTest):
-    setup_passed = False
-
+    @pytest.mark.abort_on_fail
     async def test_build_and_deploy(self):
         lib_path = await self.build_lib(".")
         charm_paths = self.render_charms(
@@ -27,7 +26,6 @@ class LBIntegrationTest(OperatorTest):
         await self.model.wait_for_idle(
             wait_for_active=True, raise_on_blocked=True, timeout=60 * 60
         )
-        type(self).setup_passed = True
 
     def _check_blocked(self):
         for framework in ("operator", "reactive"):
@@ -38,8 +36,6 @@ class LBIntegrationTest(OperatorTest):
             return True
 
     async def test_failure(self):
-        if not self.setup_passed:
-            pytest.xfail("Initial deploy failed")
         config = {"public": "true"}
         await self.model.applications["requires-operator"].set_config(config)
         await self.model.applications["requires-reactive"].set_config(config)
