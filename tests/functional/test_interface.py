@@ -84,6 +84,7 @@ def test_interface():
     # Confirm that only leaders set the version.
     assert not get_rel_data(provider, p_app)
     provider.set_leader(True)
+    p_charm.lb_consumers._set_version()
     assert get_rel_data(provider, p_app) == {"version": "1"}
     assert not c_charm.lb_provider.is_available  # waiting on remote version
     assert not c_charm.lb_provider.can_request  # waiting on remote version
@@ -96,6 +97,7 @@ def test_interface():
     # Verify that becoming leader completes the version negotiation process and
     # allows sending requests.
     consumer.set_leader(True)
+    c_charm.lb_provider._set_version()
     assert c_charm.lb_provider.can_request
     assert get_rel_data(consumer, c_app) == {"version": "1"}
     transmit_rel_data(consumer, provider)

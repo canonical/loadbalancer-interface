@@ -19,20 +19,11 @@ class VersionedInterface(Object):
         # Future-proof against the need to evolve the relation protocol
         # by ensuring that we agree on a version number before starting.
         # This may or may not be made moot by a future feature in Juju.
-        for event in (
-            charm.on[relation_name].relation_created,
-            charm.on.leader_elected,
-            charm.on.upgrade_charm,
-        ):
-            self.framework.observe(event, self._set_version)
+        self._set_version()
 
-    def _set_version(self, event):
+    def _set_version(self):
         if self.unit.is_leader():
-            if hasattr(event, "relation"):
-                relations = [event.relation]
-            else:
-                relations = self.model.relations.get(self.relation_name, [])
-            for relation in relations:
+            for relation in self.model.relations.get(self.relation_name, []):
                 relation.data[self.app]["version"] = str(schemas.max_version)
 
     @cached_property
