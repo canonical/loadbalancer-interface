@@ -33,8 +33,8 @@ The general pattern for using the class is:
   * Confirm that the request was successful and use the provided LB's address
   * Acknowledge the `Response` via `ack_response(response)`
 
-There are examples in the docs on how to do this in [an operator charm][requires_operator]
-or in [a reactive charm][requires_reactive].
+There are examples in the repo for how to do this in [an operator charm][requires-operator]
+or in [a reactive charm][requires-reactive].
 
 
 ### Providing Load Balancers
@@ -48,8 +48,8 @@ general pattern for using the class is:
   * Set the appropriate fields on the request's `response` object
   * Send the request's response via the `send_response(request)` method
 
-There are examples in the docs on how to do this in [an operator charm][provides_operator]
-or in [a reactive charm][provides_reactive].
+There are examples in the repo for how to do this in [an operator charm][provides-operator]
+or in [a reactive charm][provides-reactive].
 
 ## API Reference
 
@@ -60,8 +60,8 @@ See the [API docs][] for detailed reference on the API.
 
 [Operator Framework]: https://github.com/canonical/operator/
 [charms.reactive Framework]: https://charmsreactive.readthedocs.io/
-[requires_operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/requires_operator.md
-[requires_reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/requires_reactive.md
-[provides_operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/provides_operator.md
-[provides_reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/examples/provides_reactive.md
+[requires-operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/requires-operator/
+[requires-reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/requires-reactive/
+[provides-operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/provides-operator/
+[provides-reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/provides-reactive/
 [API docs]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/api.md

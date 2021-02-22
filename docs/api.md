@@ -18,7 +18,8 @@ When instantiated, it should be passed a charm instance and a relation name.
 ### Events
 
   * `available` Emitted once the provider is available to take requests
-  * `responses_changed` Emitted whenever one or more responses have been received or updated
+  * `response_available` Emitted the first time a complete response becomes available
+  * `response_changed` Emitted whenever one or more responses have been received or updated
 
 ### Methods
 
@@ -31,6 +32,7 @@ When instantiated, it should be passed a charm instance and a relation name.
 
   * `is_available` Whether the provider is available to take requests
   * `is_changed` Whether there are any new or changed responses which have not been acknowledged
+  * `has_response` Whether there is at least one complete response available
   * `all_responses` A list of all received responses
   * `complete_responses` A list of all up to date received responses, even if they have not changed
   * `new_responses` A list of all complete responses which are new or have changed and not been acknowledged
@@ -41,7 +43,8 @@ For charms using the older charms.reactive framework, the following flags will
 be automatically managed:
 
   * `endpoint.{relation_name}.available` Set or cleared based on `is_available`
-  * `endpoint.{relation_name}.responses_changed` Set or cleared based on `is_changed`
+  * `endpoint.{relation_name}.response.available` Set or cleared based on `has_response`
+  * `endpoint.{relation_name}.response.changed` Set or cleared based on `is_changed`
 
 
 ## `LBConsumers` Class
@@ -134,6 +137,12 @@ Acquired from `Request.response`.  A `Request` object will always have a
 `response` attribute, but the response might be "empty" if it has not been
 filled in with valid data, in which case `bool(response)` will be `False`.
 
+### Class Attributes
+
+  * `error_types` An Enum of possible values for the `error_type` field.  Can be one of:
+    * `error_types.unsupported`
+    * `error_types.provider_error`
+
 ### Properties
 
   * `name` Name of the request (`str`, read-only)
@@ -141,7 +150,10 @@ filled in with valid data, in which case `bool(response)` will be `False`.
 
 ### Fields
 
-  * `success` Whether the request was successful (`bool`, required)
-  * `message` If not successful, an indication as to why (`str`, required if `success` is `False`)
-  * `address` The address of the LB (`str`, required if `success` is `True`)
+  * `address` The address of the LB (`str`, required if `error` is `None`)
+  * `error` Whether the request was successful (`Response.error_types`, default: `None`)
+  * `error_message` General info about failure (`str`, default: None)
+  * `error_fields` Mapping of request field names to error messages (`dict[str,str]`, default: `{}`)
   * `request_hash` The hash of the `Request` when this `Response` was sent (`str`, set automatically)
+
+At least one of `error_message` or `error_fields` are required if `error` is not `None`.

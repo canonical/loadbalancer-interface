@@ -15,13 +15,18 @@ class LBProviderAvailable(EventBase):
     pass
 
 
-class LBResponsesChanged(EventBase):
+class LBResponseAvailable(EventBase):
+    pass
+
+
+class LBResponseChanged(EventBase):
     pass
 
 
 class LBProviderEvents(ObjectEvents):
     available = EventSource(LBProviderAvailable)
-    responses_changed = EventSource(LBResponsesChanged)
+    response_available = EventSource(LBResponseAvailable)
+    response_changed = EventSource(LBResponseChanged)
 
 
 class LBProvider(VersionedInterface):
@@ -35,7 +40,9 @@ class LBProvider(VersionedInterface):
         self.relation_name = relation_name
         # just call this to enforce that only one app can be related
         self.model.get_relation(relation_name)
-        self.state.set_default(response_hashes={}, was_available=False)
+        self.state.set_default(
+            response_hashes={}, was_available=False, was_response_available=False
+        )
 
         for event in (
             charm.on[relation_name].relation_created,
@@ -51,13 +58,17 @@ class LBProvider(VersionedInterface):
             if not self.state.was_available:
                 self.state.was_available = True
                 self.on.available.emit()
+            if not self.state.was_response_available:
+                self.state.was_response_available = True
+                self.on.response_available.emit()
             if self.is_changed:
-                self.on.responses_changed.emit()
+                self.on.response_changed.emit()
         elif self.state.was_available:
             self.state.was_available = False
+            self.state.was_response_available = False
             if self.state.response_hashes:
                 self.state.response_hashes = {}
-                self.on.responses_changed.emit()
+                self.on.response_changed.emit()
 
     @property
     def relation(self):
@@ -191,7 +202,7 @@ class LBProvider(VersionedInterface):
                 from charms.reactive import clear_flag
 
                 prefix = "endpoint." + self.relation_name
-                clear_flag(prefix + ".responses_changed")
+                clear_flag(prefix + ".response.changed")
             except ImportError:
                 pass  # not being used in a reactive charm
 
@@ -204,6 +215,10 @@ class LBProvider(VersionedInterface):
         return bool(self.relation)
 
     @property
+    def has_response(self):
+        return bool(self.complete_responses)
+
+    @property
     def can_request(self):
         return self.is_available and self.unit.is_leader()
 
@@ -213,4 +228,5 @@ class LBProvider(VersionedInterface):
 
         prefix = "endpoint." + self.relation_name
         toggle_flag(prefix + ".available", self.is_available)
-        toggle_flag(prefix + ".responses_changed", self.is_changed)
+        toggle_flag(prefix + ".response.available", self.has_response)
+        toggle_flag(prefix + ".response.changed", self.is_changed)

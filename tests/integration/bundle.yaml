@@ -1,0 +1,16 @@
+applications:
+  provides-operator:
+    charm: {{ charms["provides-operator"] }}
+    num_units: 1
+  requires-operator:
+    charm: {{ charms["requires-operator"] }}
+    num_units: 1
+  provides-reactive:
+    charm: {{ charms["provides-reactive"] }}
+    num_units: 1
+  requires-reactive:
+    charm: {{ charms["requires-reactive"] }}
+    num_units: 1
+relations:
+  - ["provides-operator", "requires-operator"]
+  - ["provides-reactive", "requires-reactive"]
