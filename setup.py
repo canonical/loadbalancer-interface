@@ -3,7 +3,7 @@ from setuptools import setup
 
 SETUP = {
     "name": "loadbalancer_interface",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "author": "Cory Johns",
     "author_email": "cory.johns@canonical.com",
     "url": "https://github.com/juju-solutions/loadbalancer-interface",
