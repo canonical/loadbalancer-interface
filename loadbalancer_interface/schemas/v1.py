@@ -1,6 +1,5 @@
 import json
 from enum import Enum
-
 from marshmallow import (
     Schema,
     fields,
@@ -98,6 +97,8 @@ class Request(SchemaWrapper):
     protocols = Protocols
 
     class _Schema(Schema):
+        id = fields.Str(required=True)
+        name = fields.Str(required=True)
         protocol = EnumField(Protocols, by_value=True, required=True)
         backends = fields.List(fields.Str(), missing=list)
         port_mapping = fields.Dict(
@@ -113,45 +114,22 @@ class Request(SchemaWrapper):
         ingress_address = fields.Str(missing=None)
         sent_hash = fields.Str(missing=None)
 
-    @classmethod
-    def _from_id(cls, req_id, relations):
-        """Return an empty Request with the given ID.
-
-        This represents an unknown or removed request.
-        """
-        name, rel_id = req_id.split(":")
-        request = cls(name)
-        request._id = req_id
-        for relation in relations:
-            if relation.id == rel_id:
-                request.relation = relation
-                break
-        return request
-
-    def __init__(self, name):
+    def __init__(self):
         super().__init__()
-        self._name = name
-        self._id = None
+        self._response = None
         # On the provider side, requests need to track which relation they
         # came from to know where to send the response.
         self.relation = None
-        self.response = Response(self)
 
     @property
-    def name(self):
-        return self._name
-
-    @property
-    def id(self):
-        if self._id is None:
-            if self.relation is None:
-                return None
-            self._id = "{}:{}".format(self.relation.id, self.name)
-        return self._id
+    def response(self):
+        if self._response is None:
+            self._response = Response(self)
+        return self._response
 
     @classmethod
-    def loads(cls, name, request_sdata, response_sdata=None):
-        self = cls(name)
+    def loads(cls, request_sdata, response_sdata=None):
+        self = cls()
         self._update(json.loads(request_sdata))
         if response_sdata:
             self.response._update(json.loads(response_sdata))

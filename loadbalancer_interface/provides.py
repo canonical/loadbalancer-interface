@@ -59,7 +59,7 @@ class LBConsumers(VersionedInterface):
                     continue
                 name = key[len("request_") :]
                 response_sdata = local_data.get("response_" + name)
-                request = schema.Request.loads(name, request_sdata, response_sdata)
+                request = schema.Request.loads(request_sdata, response_sdata)
                 request.relation = relation
                 if not request.backends:
                     for unit in sorted(relation.units, key=attrgetter("name")):
@@ -87,10 +87,12 @@ class LBConsumers(VersionedInterface):
         current_ids = {request.id for request in self.all_requests}
         unknown_ids = self.state.known_requests.keys() - current_ids
         schema = self._schema()
-        return [
-            schema.Request._from_id(req_id, self.relations)
-            for req_id in sorted(unknown_ids)
-        ]
+        removed_requests = []
+        for req_id in sorted(unknown_ids):
+            request = schema.Request()
+            request.id = req_id
+            removed_requests.append(request)
+        return removed_requests
 
     def send_response(self, request):
         """Send a specific request's response."""

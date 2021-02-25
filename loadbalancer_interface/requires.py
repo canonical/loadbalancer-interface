@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from cached_property import cached_property
 
 from ops.framework import (
@@ -91,9 +93,11 @@ class LBProvider(VersionedInterface):
         if request_key in local_data:
             request_sdata = local_data[request_key]
             response_sdata = remote_data.get(response_key)
-            request = schema.Request.loads(name, request_sdata, response_sdata)
+            request = schema.Request.loads(request_sdata, response_sdata)
         else:
-            request = schema.Request(name)
+            request = schema.Request()
+            request.name = name
+            request.id = uuid4().hex
         return request
 
     def get_response(self, name):
