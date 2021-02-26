@@ -78,9 +78,6 @@ def test_interface():
         },
     )
 
-    foo_id = "{}:foo".format(provider._rid)
-    bar_id = "{}:bar".format(provider._rid)
-
     # Confirm that only leaders set the version.
     assert not get_rel_data(provider, p_app)
     provider.set_leader(True)
@@ -104,6 +101,7 @@ def test_interface():
 
     # Test creating and sending a request.
     c_charm.request_lb("foo")
+    foo_id = c_charm.lb_provider.get_request("foo").id
     transmit_rel_data(consumer, provider)
     assert foo_id in p_charm.lb_consumers.state.known_requests
     assert p_charm.lb_consumers.all_requests[0].backends == [
@@ -150,6 +148,7 @@ def test_interface():
 
     # Test sending a second request
     c_charm.request_lb("bar")
+    bar_id = c_charm.lb_provider.get_request("bar").id
     transmit_rel_data(consumer, provider)
     transmit_rel_data(provider, consumer)
     assert bar_id in p_charm.lb_consumers.state.known_requests

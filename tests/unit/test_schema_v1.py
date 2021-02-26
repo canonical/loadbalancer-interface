@@ -28,23 +28,29 @@ def test_request():
     with pytest.raises(TypeError):
         Request(foo="foo")
     with pytest.raises(ValidationError):
-        Request("name")._update(
-            protocol=Request.protocols.https, port_mapping={"none": "none"}
+        Request()._update(
+            name="foo",
+            id="foo",
+            protocol=Request.protocols.https,
+            port_mapping={"none": "none"},
         )
     with pytest.raises(ValidationError):
-        Request("name")._update(
-            protocol=Request.protocols.https, port_mapping={443: 443}, foo="bar"
+        Request()._update(
+            name="foo",
+            id="foo",
+            protocol=Request.protocols.https,
+            port_mapping={443: 443},
+            foo="bar",
         )
 
-    req = Request("name")
+    req = Request()
+    req.name = "name"
+    req.id = "id"
     req.protocol = req.protocols.https
     req.port_mapping = {443: 443}
     assert req.version == 1
     assert req.health_checks == []
     assert req.dump()
-    assert req.id is None
-    req.relation = Mock(id="0")
-    assert req.id == "0:name"
 
     hc = HealthCheck()._update(protocol=req.protocols.https, port=443)
     req.health_checks.append(hc)
@@ -63,7 +69,6 @@ def test_request():
     req.protocol = req.protocols.https
 
     req2 = Request.loads(
-        "name",
         req.dumps(),
         '{"address": "foo", "received_hash": "%s"}' % req.sent_hash,
     )
