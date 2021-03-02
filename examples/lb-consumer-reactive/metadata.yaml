@@ -1,4 +1,4 @@
-name: requires-reactive
+name: lb-consumer-reactive
 summary: "test"
 description: "test"
 maintainers: ["foo <foo@bar.com>"]

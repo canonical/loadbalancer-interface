@@ -1,4 +1,4 @@
-name: provides-operator
+name: lb-provider
 summary: "test"
 description: "test"
 maintainers: ["foo <foo@bar.com>"]

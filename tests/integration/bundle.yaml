@@ -1,16 +1,16 @@
 applications:
-  provides-operator:
-    charm: {{ charms["provides-operator"] }}
+  lb-provider:
+    charm: {{ charms["lb-provider"] }}
     num_units: 1
-  requires-operator:
-    charm: {{ charms["requires-operator"] }}
+  lb-consumer:
+    charm: {{ charms["lb-consumer"] }}
     num_units: 1
-  provides-reactive:
-    charm: {{ charms["provides-reactive"] }}
+  lb-provider-reactive:
+    charm: {{ charms["lb-provider-reactive"] }}
     num_units: 1
-  requires-reactive:
-    charm: {{ charms["requires-reactive"] }}
+  lb-consumer-reactive:
+    charm: {{ charms["lb-consumer-reactive"] }}
     num_units: 1
 relations:
-  - ["provides-operator", "requires-operator"]
-  - ["provides-reactive", "requires-reactive"]
+  - ["lb-provider", "lb-consumer"]
+  - ["lb-provider-reactive", "lb-consumer-reactive"]

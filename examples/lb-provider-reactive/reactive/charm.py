@@ -16,9 +16,9 @@ def get_lb():
     lb_consumers = endpoint_from_name("lb-consumers")
     for request in lb_consumers.new_requests:
         response = request.response
-        if request.public:
+        if not request.public:
             response.error = response.error_types.unsupported
-            response.error_fields = {"public": "internal only"}
+            response.error_fields = {"public": "public only"}
         else:
             try:
                 response.address = layer.provides_reactive.create_lb(request)
