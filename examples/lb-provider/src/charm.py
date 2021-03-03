@@ -24,9 +24,9 @@ class ProvidesOperatorCharm(CharmBase):
         self.unit.status = MaintenanceStatus("processing requests")
         for request in self.lb_consumers.new_requests:
             response = request.response
-            if request.public:
+            if not request.public:
                 response.error = response.error_types.unsupported
-                response.error_fields = {"public": "internal only"}
+                response.error_fields = {"public": "public only"}
             else:
                 try:
                     response.address = self._create_lb(request)

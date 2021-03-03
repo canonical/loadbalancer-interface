@@ -55,6 +55,31 @@ or in [a reactive charm][provides-reactive].
 
 See the [API docs][] for detailed reference on the API.
 
+## Test Charms
+
+To ease testing of charms using this interface, this library provides test charms
+which can be used with a `pytest_operator.OperatorTest` based integration test to
+serve as a basic counterpart to the charm providing or requiring this interface.
+
+To use the charms, simply mark your test class with the `lb_charms` mark. This will
+cause an `lb_charms` attribute to be injected into your test instance with attributes
+for each of the [example charms][] available in the repo. (The attribute names will
+be the charm names with dashes replaced with underscores.) For example:
+
+```python
+import pytest
+from pytest_operator import OperatorTest
+
+@pytest.mark.lb_charms
+class MyCharmTest(OperatorTest):
+    def test_build_and_deploy(self):
+        my_charm = await self.build_charm(".")
+        lb_provider = await self.build_charm(self.lb_charms.lb_provider)
+        await self.model.deploy(my_charm)
+        await self.model.deploy(lb_provider)
+        await self.model.add_relation("my-charm", "lb-provider")
+```
+
 
 <!-- Links -->
 
@@ -65,3 +90,4 @@ See the [API docs][] for detailed reference on the API.
 [provides-operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/provides-operator/
 [provides-reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/provides-reactive/
 [API docs]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/api.md
+[example charms]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples

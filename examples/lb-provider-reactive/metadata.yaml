@@ -1,4 +1,4 @@
-name: provides-reactive
+name: lb-provider-reactive
 summary: "test"
 description: "test"
 maintainers: ["foo <foo@bar.com>"]

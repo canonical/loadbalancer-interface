@@ -1,4 +1,4 @@
-name: requires-operator
+name: lb-consumer
 summary: "test"
 description: "test"
 maintainers: ["foo <foo@bar.com>"]
