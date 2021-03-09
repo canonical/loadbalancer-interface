@@ -1,6 +1,8 @@
+import logging
 from operator import attrgetter
 
 from cached_property import cached_property
+from marshmallow import ValidationError
 
 from ops.framework import (
     StoredState,
@@ -10,6 +12,9 @@ from ops.framework import (
 )
 
 from .base import VersionedInterface
+
+
+log = logging.getLogger(__name__)
 
 
 class LBRequestsChanged(EventBase):
@@ -59,7 +64,11 @@ class LBConsumers(VersionedInterface):
                     continue
                 name = key[len("request_") :]
                 response_sdata = local_data.get("response_" + name)
-                request = schema.Request.loads(request_sdata, response_sdata)
+                try:
+                    request = schema.Request.loads(request_sdata, response_sdata)
+                except ValidationError:
+                    log.exception("Failed to load request {}".format(key))
+                    continue
                 request.relation = relation
                 if not request.backends:
                     for unit in sorted(relation.units, key=attrgetter("name")):

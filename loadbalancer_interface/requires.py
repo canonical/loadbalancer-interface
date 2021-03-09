@@ -1,6 +1,8 @@
+import logging
 from uuid import uuid4
 
 from cached_property import cached_property
+from marshmallow import ValidationError
 
 from ops.framework import (
     StoredState,
@@ -11,6 +13,9 @@ from ops.framework import (
 from ops.model import ModelError
 
 from .base import VersionedInterface
+
+
+log = logging.getLogger(__name__)
 
 
 class LBProviderAvailable(EventBase):
@@ -90,11 +95,15 @@ class LBProvider(VersionedInterface):
         remote_data = self.relation.data[self.relation.app]
         request_key = "request_" + name
         response_key = "response_" + name
+        request = None
         if request_key in local_data:
-            request_sdata = local_data[request_key]
-            response_sdata = remote_data.get(response_key)
-            request = schema.Request.loads(request_sdata, response_sdata)
-        else:
+            try:
+                request_sdata = local_data[request_key]
+                response_sdata = remote_data.get(response_key)
+                request = schema.Request.loads(request_sdata, response_sdata)
+            except ValidationError:
+                log.exception("Failed to load request {}".format(request_key))
+        if not request:
             request = schema.Request()
             request.name = name
             request.id = uuid4().hex
