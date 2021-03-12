@@ -1,3 +1,4 @@
+import json
 import logging
 from uuid import uuid4
 
@@ -112,15 +113,21 @@ class LBProvider(VersionedInterface):
     def get_response(self, name):
         """Get a specific Load Balancer Response by name.
 
-        This is equivalent to `get_request(name).response`, except that it
-        will return `None` if the response is not available.
+        This is similar to `get_request(name).response`, except that it will return
+        `None` if the response is not available and can be used by non-leaders.
         """
         if not self.is_available:
             return None
-        request = self.get_request(name)
-        if not request.response:
+        schema = self._schema(self.relation)
+        remote_data = self.relation.data[self.relation.app]
+        response_key = "response_" + name
+        if response_key not in remote_data:
             return None
-        return request.response
+        request = schema.Request()
+        request.name = name
+        response = schema.Response(request)
+        response._update(json.loads(remote_data[response_key]))
+        return response
 
     def send_request(self, request):
         """Send a specific request.
@@ -134,7 +141,10 @@ class LBProvider(VersionedInterface):
         # The sent_hash is used to tell when the provider's response has been
         # updated to match our request. We can't used the request hash computed
         # on the providing side because it may not match due to default values
-        # being filled in on that side (e.g., the backend addresses).
+        # being filled in on that side (e.g., the backend addresses). We have to
+        # clear the sent_hash field before calculating the hash to send so that
+        # it doesn't cause the hash to change even if no other fields have.
+        request.sent_hash = None
         request.sent_hash = request.hash
         key = "request_" + request.name
         self.relation.data[self.app][key] = request.dumps()
@@ -156,7 +166,7 @@ class LBProvider(VersionedInterface):
     def all_requests(self):
         """A list of all requests which have been made."""
         requests = []
-        if self.relation:
+        if self.relation and self.charm.unit.is_leader():
             for key in sorted(self.relation.data[self.app].keys()):
                 if not key.startswith("request_"):
                     continue

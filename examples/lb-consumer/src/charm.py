@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import logging
+from subprocess import check_call
 
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 from loadbalancer_interface import LBProvider
 
@@ -17,37 +18,46 @@ class RequiresOperatorCharm(CharmBase):
         super().__init__(*args)
         self.lb_provider = LBProvider(self, "lb-provider")
 
-        if not self.lb_provider.is_available:
-            self.unit.status = WaitingStatus("waiting on provider")
+        self.framework.observe(self.on.install, self._install)
+        for event in (
+            self.lb_provider.on.available,
+            self.on.config_changed,
+            self.on.leader_elected,
+            self.on.upgrade_charm,
+        ):
+            self.framework.observe(event, self._request_lb)
+        self._set_status()
 
-        self.framework.observe(self.lb_provider.on.available, self._request_lb)
-        self.framework.observe(self.lb_provider.on.response_changed, self._get_lb)
-        if self.lb_provider.is_available:
-            self.framework.observe(self.on.config_changed, self._request_lb)
+    def _install(self, event):
+        check_call(["apt-get", "update", "-yq"])
+        check_call(["apt-get", "install", "nginx-full", "-y"])
 
     def _request_lb(self, event):
-        self.unit.status = MaintenanceStatus("sending request")
-        request = self.lb_provider.get_request("my-service")
-        request.protocol = request.protocols.https
-        request.port_mapping = {443: 443}
+        if not (self.unit.is_leader() and self.lb_provider.is_available):
+            return
+        request = self.lb_provider.get_request("lb-consumer")
+        request.protocol = request.protocols.tcp
+        request.port_mapping = {80: 80}
         request.public = self.config["public"]
         self.lb_provider.send_request(request)
-        self.unit.status = WaitingStatus("waiting on provider response")
 
-    def _get_lb(self, event):
-        response = self.lb_provider.get_response("my-service")
+    def _set_status(self):
+        if not self.lb_provider.is_available:
+            self.unit.status = WaitingStatus("waiting on provider")
+            return
+        response = self.lb_provider.get_response("lb-consumer")
         if not response:
+            self.unit.status = WaitingStatus("waiting on provider response")
             return
         if response.error:
-            self.unit.status = BlockedStatus(f"LB failed: {response.error}")
+            error = response.error_message or response.error_fields
+            self.unit.status = BlockedStatus(f"LB failed: {error}")
             log.error(
                 f"LB failed ({response.error}):\n"
                 f"{response.error_message}\n"
                 f"{response.error_fields}"
             )
             return
-        log.info(f"LB is available at {response.address}")
-        self.lb_provider.ack_response(response)
         self.unit.status = ActiveStatus(response.address)
 
 
