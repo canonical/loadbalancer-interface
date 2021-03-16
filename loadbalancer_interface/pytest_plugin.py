@@ -1,10 +1,7 @@
-import weakref
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-
-from pytest_operator import OperatorTest
 
 
 try:
@@ -23,35 +20,26 @@ except ImportError:
             yield Path(rf)
 
 
-def pytest_configure(config):
-    config.addinivalue_line("markers", "lb_charms")
+@pytest.fixture(scope="module")
+def lb_charms(ops_test):
+    """Fixture which provides the load balancer example charms for testing.
 
-
-@pytest.fixture(autouse=True, scope="class")
-def lb_charms(request):
-    """Fixture which injects the lb_charms attribute to marked OperatorTests.
-
-    Any subclass of OperatorTest which is marked with @pytest.mark.lb_charms
-    will have a lb_charms attribute injected into it which has the following
-    attributes:
+    This fixture returns an object with the following attributes:
 
       * lb_provider - A charm which provides loadbalancers
       * lb_consumer - A charm which requires loadbalancers
       * lb_provider_reactive - A reactive charm which provides loadbalancers
       * lb_consumer_reactive - A reactive charm which requires loadbalancers
+
+    Each of these will need to be passed to `ops_test.build_charm()`.
     """
-    marker = request.node.get_closest_marker("lb_charms")
-    if not marker:
-        return
-    if not issubclass(getattr(request, "cls", None), OperatorTest):
-        return
-    request.cls.lb_lib_url = "loadbalancer-interface"
-    request.cls.lb_charms = property(lambda test_case: LBCharms(test_case))
+    return LBCharms(ops_test)
 
 
 class LBCharms:
-    def __init__(self, test_case):
-        self._test_case = weakref.proxy(test_case)
+    def __init__(self, ops_test):
+        self._ops_test = ops_test
+        self._lb_lib_url = "loadbalancer-interface"
         self._lb_provider = None
         self._lb_consumer = None
         self._lb_provider_reactive = None
@@ -59,10 +47,10 @@ class LBCharms:
 
     def _render(self, charm_resource):
         with resource_path("loadbalancer_interface", "examples") as rp:
-            return self._test_case.render_charm(
+            return self._ops_test.render_charm(
                 rp / charm_resource,
                 include=["wheelhouse.txt", "requirements.txt"],
-                lb_lib_url=self._test_case.lb_lib_url,
+                lb_lib_url=self._lb_lib_url,
             )
 
     @property
