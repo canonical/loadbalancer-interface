@@ -138,6 +138,14 @@ def test_interface():
 
     # Test updating the request and getting an updated response.
     c_charm.request_lb("foo", ["192.168.0.5"])
+    lb_p = c_charm.lb_provider
+    assert len(lb_p.complete_responses) != len(lb_p.all_responses)
+    consumer.set_leader(False)
+    # non-leaders can't read app-level relation data set by their own leader, so can't
+    # verify whether a response has been updated or not; however, they should still be
+    # able to read responses
+    assert len(lb_p.complete_responses) == len(lb_p.all_responses)
+    consumer.set_leader(True)
     transmit_rel_data(consumer, provider)
     transmit_rel_data(provider, consumer)
     assert p_charm.lb_consumers.all_requests[0].backends == ["192.168.0.5"]

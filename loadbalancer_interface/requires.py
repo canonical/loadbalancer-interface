@@ -185,13 +185,28 @@ class LBProvider(VersionedInterface):
     @cached_property
     def all_responses(self):
         """A list of all responses which are available."""
-        return [request.response for request in self.all_requests if request.response]
+        # NB: Non-leaders can't read the request data, but they should be able
+        # to read the responses.
+        responses = []
+        if self.relation:
+            for key in sorted(self.relation.data[self.relation.app].keys()):
+                if not key.startswith("response_"):
+                    continue
+                responses.append(self.get_response(key[len("response_") :]))
+        return responses
 
     @cached_property
     def complete_responses(self):
         """A list of all responses which are up to date with their associated
         request.
         """
+        if not self.charm.unit.is_leader():
+            # Ugh.  Non-leaders can't read the request data, so they can't
+            # verify if the response is up-to-date with the latest request
+            # data. Instead, just assume that if there's a response there, that
+            # it's up-to-date so that the non-leaders can at least see the
+            # responses.
+            return self.all_responses
         return [
             request.response
             for request in self.all_requests
