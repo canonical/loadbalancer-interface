@@ -5,7 +5,7 @@ from unittest import mock
 
 # Cached properties are useful at runtime for efficiency, but make unit
 # testing harder. This simply replaces @cached_property with @property.
-mock.patch("cached_property.cached_property", property).start()
+mock.patch("functools.cached_property", property).start()
 
 if not hasattr(builtins, "breakpoint"):
     # Shim breakpoint() builtin from PEP-0553 prior to 3.7

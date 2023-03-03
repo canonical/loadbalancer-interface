@@ -6,29 +6,29 @@ on:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.9
+        python-version: '3.9'
     - name: Install Tox
       run: pip install tox
     - name: Run lint
       run: tox -e lint
   unit-and-func-tests:
     name: Unit, & Functional Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
-        python: [3.5, 3.6, 3.7, 3.8, 3.9]
+        python: ['3.8', '3.9', '3.10', '3.11']
     steps:
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python }}
     - name: Install Tox
@@ -38,18 +38,25 @@ jobs:
 
   integration-test:
     name: Integration test with LXD
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 40
+    strategy:
+      matrix:
+        juju: ['2.9', '3.1']
     steps:
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Setup Python
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: 3.8
     - name: Install Dependencies
       run: pip install tox
     - name: Setup operator environment
-      uses: charmed-kubernetes/actions-operator@master
+      uses: charmed-kubernetes/actions-operator@main
+      with:
+        provider: lxd
+        juju-channel: ${{ matrix.juju }}/stable
+
     - name: Run integration tests
       run: tox -e integration

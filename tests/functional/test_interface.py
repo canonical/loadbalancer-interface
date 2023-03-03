@@ -21,6 +21,7 @@ def test_interface():
         next_unit_num = max(int(unit.name.split("/")[1]) for unit in units) + 1
         new_unit = Unit(
             "/".join((harness.charm.app.name, str(next_unit_num))),
+            harness.charm.unit._cache._meta,
             harness.charm.unit._backend,
             harness.charm.unit._cache,
         )

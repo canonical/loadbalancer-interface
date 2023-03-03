@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -47,10 +48,16 @@ class LBCharms:
 
     def _render(self, charm_resource):
         with resource_path("loadbalancer_interface", "examples") as rp:
+            assert isinstance(self._lb_lib_url, Path)
+            if (rp / charm_resource / "charmcraft.yaml").exists():
+                shutil.copy2(self._lb_lib_url, rp / charm_resource)
+                lb_url = f"file:./{self._lb_lib_url.name}"
+            else:
+                lb_url = f"file://{self._lb_lib_url}#egg=loadbalancer_interface"
             return self._ops_test.render_charm(
                 rp / charm_resource,
                 include=["wheelhouse.txt", "requirements.txt"],
-                lb_lib_url=self._lb_lib_url,
+                lb_lib_url=lb_url,
             )
 
     @property
