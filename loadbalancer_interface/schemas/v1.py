@@ -130,7 +130,8 @@ class Request(SchemaWrapper):
     @classmethod
     def loads(cls, request_sdata, response_sdata=None):
         self = cls()
-        self._update(json.loads(request_sdata))
+        if request_sdata:
+            self._update(json.loads(request_sdata))
         if response_sdata:
             self.response._update(json.loads(response_sdata))
         return self

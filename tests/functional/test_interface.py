@@ -7,10 +7,13 @@ from ops.testing import Harness
 from loadbalancer_interface import LBProvider, LBConsumers
 
 
-def test_interface():
+def test_interface(request):
     provider = Harness(ProviderCharm, meta=ProviderCharm._meta)
-    consumer = Harness(ConsumerCharm, meta=ConsumerCharm._meta)
+    provider.set_model_name(request.node.originalname)
     provider.begin()
+
+    consumer = Harness(ConsumerCharm, meta=ConsumerCharm._meta)
+    consumer.set_model_name(request.node.originalname)
     consumer.begin()
 
     peer_units = defaultdict(list)
@@ -61,8 +64,8 @@ def test_interface():
     c_unit1 = add_peer_unit(consumer)
 
     # Setup initial relation with only Juju-provided automatic data.
-    provider._rid = provider.add_relation("lb-consumers", c_charm.meta.name)
-    consumer._rid = consumer.add_relation("lb-provider", p_charm.meta.name)
+    provider._rid = provider.add_relation("lb-consumers", c_charm.app.name)
+    consumer._rid = consumer.add_relation("lb-provider", p_charm.app.name)
     # NB: The first unit added to the relation determines the app of the
     # relation, so it's critical to add a remote unit before any local units.
     provider.add_relation_unit(provider._rid, c_unit0.name)
