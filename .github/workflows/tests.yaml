@@ -43,20 +43,50 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v3
+
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
+
     - name: Install Dependencies
       run: pip install tox
+
     - name: Setup operator environment
       uses: charmed-kubernetes/actions-operator@main
       with:
         provider: lxd
         juju-channel: 3.1/stable
 
-    - name: Create Charmcraft lxc project
-      run: lxc --project charmcraft project create local:charmcraft
+    - name: Configure LXC for Charmcraft
+      run: |
+        lxc --project charmcraft project create local:charmcraft
+        lxc --project charmcraft profile device add default root disk path=/ pool=default | true
+        lxc --project charmcraft profile device add default eth0 nic name=eth0 network=lxdbr0 | true
+        lxc --project charmcraft profile show default
 
     - name: Run integration tests
       run: tox -e integration
+
+    - name: Setup Debug Artifact Collection
+      if: ${{ failure() }}
+      run: mkdir tmp
+    
+    - name: Collect Charmcraft Logs
+      if: ${{ failure() }}
+      run: |
+        mv $HOME/.local/state/charmcraft/log/* tmp/ | true
+
+    - name: Collect Juju Status
+      if: ${{ failure() }}
+      run: |
+        juju status 2>&1 | tee tmp/juju-status.txt
+        juju-crashdump -s -m controller -a debug-layer -a config -o tmp/
+        mv juju-crashdump-* tmp/ | true
+
+    - name: Upload debug artifacts
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-run-artifacts
+        path: tmp
