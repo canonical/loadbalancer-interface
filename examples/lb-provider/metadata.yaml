@@ -4,7 +4,7 @@ description: "test"
 maintainers: ["foo <foo@bar.com>"]
 tags: ["test"]
 series:
-  - focal
+  - jammy
 provides:  # provides LBs to consumers
   lb-consumers:
     interface: loadbalancer

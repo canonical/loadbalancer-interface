@@ -9,7 +9,7 @@ log = logging.getLogger(__name__)
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test, lb_charms):
     lb_lib_path = await ops_test.build_lib(".")
-    lb_charms._lb_lib_url = f"file://{lb_lib_path}#egg=loadbalancer_interface"
+    lb_charms._lb_lib_url = lb_lib_path
     bundle = ops_test.render_bundle(
         "tests/integration/bundle.yaml",
         charms=await ops_test.build_charms(

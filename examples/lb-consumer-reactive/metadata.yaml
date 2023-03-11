@@ -4,7 +4,7 @@ description: "test"
 maintainers: ["foo <foo@bar.com>"]
 tags: ["test"]
 series:
-  - focal
+  - jammy
 requires:  # consumes a LB from a provider
   lb-provider:
     interface: loadbalancer
