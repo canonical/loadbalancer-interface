@@ -10,15 +10,16 @@ log = logging.getLogger(__name__)
 async def test_build_and_deploy(ops_test, lb_charms):
     lb_lib_path = await ops_test.build_lib(".")
     lb_charms._lb_lib_url = lb_lib_path
-    bundle = ops_test.render_bundle(
-        "tests/integration/bundle.yaml",
-        charms=await ops_test.build_charms(
-            lb_charms.lb_provider,
+    charms: dict = await ops_test.build_charms(lb_charms.lb_provider)
+    charms.update(
+        **await ops_test.build_charms(
             lb_charms.lb_consumer,
             lb_charms.lb_provider_reactive,
             lb_charms.lb_consumer_reactive,
-        ),
+        )
     )
+
+    bundle = ops_test.render_bundle("tests/integration/bundle.yaml", charms=charms)
     log.info("Deploying bundle")
     await ops_test.model.deploy(bundle)
     await ops_test.model.wait_for_idle(
