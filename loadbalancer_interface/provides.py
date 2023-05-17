@@ -44,14 +44,11 @@ class LBConsumers(VersionedInterface):
             self.framework.observe(event, self._check_consumers)
 
         self.state.set_default(follower_can_read_requests=False)
-        self.state.set_default(follower_can_write_response=False)
 
-    def follower_perms(self, *, read: bool = None, write: bool = None) -> "LBConsumers":
+    def follower_perms(self, *, read: bool = None) -> "LBConsumers":
         """Set permissions on the relation for non-leader units"""
         if read is not None:
             self.state.follower_can_read_requests = read
-        if write is not None:
-            self.state.follower_can_write_response = write
         return self
 
     def _check_consumers(self, event):
@@ -61,18 +58,20 @@ class LBConsumers(VersionedInterface):
     @cached_property
     def all_requests(self):
         """A list of all current consumer requests."""
-        if not self.unit.is_leader() and not self.state.follower_can_read_requests:
+        follower = not self.unit.is_leader()
+        if follower and not self.state.follower_can_read_requests:
             """
             It could be dangerous for the followers to respond
             to requests, however, the followers may need access
-            to read the requested data.  Be warned it's likely
-            only the leader should respond to the requests.
+            to read the requested data.
+            * Only the leader should respond to the requests.
+            * Only the leader may read from relation.data[self.app]
             """
             return []
         requests = []
         for relation in self.relations:
             schema = self._schema(relation)
-            local_data = relation.data[self.app]
+            local_data = {} if follower else relation.data[self.app]
             remote_data = relation.data[relation.app]
             for key, request_sdata in sorted(remote_data.items()):
                 if not key.startswith("request_"):
@@ -120,8 +119,9 @@ class LBConsumers(VersionedInterface):
 
     def send_response(self, request):
         """Send a specific request's response."""
-        if not self.unit.is_leader() and not self.state.follower_can_write_response:
-            # This unit is a follower which shouldn't respond
+        if not self.unit.is_leader():
+            # This unit is a follower which cannot write to
+            # relation.data[self.app]
             return
 
         request.response.received_hash = request.sent_hash
