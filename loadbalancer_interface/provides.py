@@ -43,6 +43,17 @@ class LBConsumers(VersionedInterface):
         ):
             self.framework.observe(event, self._check_consumers)
 
+        self.state.set_default(follower_can_read_requests=False)
+        self.state.set_default(follower_can_write_response=False)
+
+    def follower_perms(self, *, read: bool = None, write: bool = None) -> "LBConsumers":
+        """Set permissions on the relation for non-leader units"""
+        if read is not None:
+            self.state.follower_can_read_requests = read
+        if write is not None:
+            self.state.follower_can_write_response = write
+        return self
+
     def _check_consumers(self, event):
         if self.is_changed:
             self.on.requests_changed.emit()
@@ -50,9 +61,13 @@ class LBConsumers(VersionedInterface):
     @cached_property
     def all_requests(self):
         """A list of all current consumer requests."""
-        if not self.unit.is_leader():
-            # Only the leader can process requests, so avoid mistakes
-            # by not even reading the requests if not the leader.
+        if not self.unit.is_leader() and not self.state.follower_can_read_requests:
+            """
+            It could be dangerous for the followers to respond
+            to requests, however, the followers may need access
+            to read the requested data.  Be warned it's likely
+            only the leader should respond to the requests.
+            """
             return []
         requests = []
         for relation in self.relations:
@@ -105,6 +120,10 @@ class LBConsumers(VersionedInterface):
 
     def send_response(self, request):
         """Send a specific request's response."""
+        if not self.unit.is_leader() and not self.state.follower_can_write_response:
+            # This unit is a follower which shouldn't respond
+            return
+
         request.response.received_hash = request.sent_hash
         key = "response_" + request.name
         request.relation.data[self.app][key] = request.response.dumps()

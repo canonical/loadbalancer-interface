@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 
 from charms.reactive import when, when_not, set_flag, endpoint_from_name
+from charms.reactive import hook
 from charms import layer
+
+
+@hook("upgrade-charm")
+def upgrade_charm():
+    lb_consumers = endpoint_from_name("lb-consumers")
+    lb_consumers.follower_perms(read=True)
 
 
 @when_not("charm.status.is-set")
