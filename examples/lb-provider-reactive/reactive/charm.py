@@ -5,10 +5,10 @@ from charms.reactive import hook
 from charms import layer
 
 
-@hook("upgrade-charm")
-def upgrade_charm():
+def allow_lb_consumers_to_read_requests():
     lb_consumers = endpoint_from_name("lb-consumers")
     lb_consumers.follower_perms(read=True)
+    return lb_consumers
 
 
 @when_not("charm.status.is-set")
@@ -20,7 +20,7 @@ def set_status():
 @when("endpoint.lb-consumers.requests_changed")
 def get_lb():
     layer.status.maintenance("processing requests")
-    lb_consumers = endpoint_from_name("lb-consumers")
+    lb_consumers = allow_lb_consumers_to_read_requests()
     for request in lb_consumers.new_requests:
         response = request.response
         if not request.public:
