@@ -122,6 +122,7 @@ class LBConsumers(VersionedInterface):
         if not self.unit.is_leader():
             # This unit is a follower which cannot write to
             # relation.data[self.app]
+            log.warning("Non-leader unit cannot send response")
             return
 
         request.response.received_hash = request.sent_hash

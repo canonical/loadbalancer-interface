@@ -126,7 +126,7 @@ def test_interface(request):
     provider.set_leader(False)
     assert len(p_charm.lb_consumers.all_requests) == 0
 
-    # Confirm non-leaders cannot see requests with read permission
+    # Confirm non-leaders can see requests with read permission
     p_charm.lb_consumers.follower_perms(read=True)
     assert len(p_charm.lb_consumers.all_requests) == 1
 
