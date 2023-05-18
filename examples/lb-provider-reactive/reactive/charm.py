@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 from charms.reactive import when, when_not, set_flag, endpoint_from_name
-from charms.reactive import hook
 from charms import layer
 
 
