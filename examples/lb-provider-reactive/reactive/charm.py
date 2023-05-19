@@ -4,6 +4,12 @@ from charms.reactive import when, when_not, set_flag, endpoint_from_name
 from charms import layer
 
 
+def allow_lb_consumers_to_read_requests():
+    lb_consumers = endpoint_from_name("lb-consumers")
+    lb_consumers.follower_perms(read=True)
+    return lb_consumers
+
+
 @when_not("charm.status.is-set")
 def set_status():
     layer.status.active("")
@@ -13,7 +19,7 @@ def set_status():
 @when("endpoint.lb-consumers.requests_changed")
 def get_lb():
     layer.status.maintenance("processing requests")
-    lb_consumers = endpoint_from_name("lb-consumers")
+    lb_consumers = allow_lb_consumers_to_read_requests()
     for request in lb_consumers.new_requests:
         response = request.response
         if not request.public:

@@ -59,6 +59,7 @@ When instantiated, it should be passed a charm instance and a relation name.
 ### Methods
 
   * `send_response(request)` Send the completed `Response` attached to the given `Request`
+  * `follower_perms(*, read=...)` Set permissions for follower units to access requests
 
 ### Properties
 

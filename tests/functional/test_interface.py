@@ -58,9 +58,11 @@ def test_interface(request):
 
     p_charm = provider.charm
     p_app = p_charm.app
+    p_unit_0 = p_charm.unit
+
     c_charm = consumer.charm
     c_app = c_charm.app
-    c_unit0 = consumer.charm.unit
+    c_unit0 = c_charm.unit
     c_unit1 = add_peer_unit(consumer)
 
     # Setup initial relation with only Juju-provided automatic data.
@@ -70,8 +72,8 @@ def test_interface(request):
     # relation, so it's critical to add a remote unit before any local units.
     provider.add_relation_unit(provider._rid, c_unit0.name)
     provider.add_relation_unit(provider._rid, c_unit1.name)
-    provider.add_relation_unit(provider._rid, p_charm.unit.name)
-    consumer.add_relation_unit(consumer._rid, p_charm.unit.name)
+    provider.add_relation_unit(provider._rid, p_unit_0.name)
+    consumer.add_relation_unit(consumer._rid, p_unit_0.name)
     consumer.add_relation_unit(consumer._rid, c_unit0.name)
     consumer.add_relation_unit(consumer._rid, c_unit1.name)
     update_rel_data(
@@ -82,8 +84,12 @@ def test_interface(request):
         },
     )
 
-    # Confirm that only leaders set the version.
+    # Confirm that non-leaders cannot set the version.
+    provider.set_leader(False)
+    p_charm.lb_consumers._set_version()
     assert not get_rel_data(provider, p_app)
+
+    # Confirm that only leaders set the version.
     provider.set_leader(True)
     p_charm.lb_consumers._set_version()
     assert get_rel_data(provider, p_app) == {"version": "1"}
@@ -108,13 +114,28 @@ def test_interface(request):
     foo_id = c_charm.lb_provider.get_request("foo").id
     transmit_rel_data(consumer, provider)
     assert foo_id in p_charm.lb_consumers.state.known_requests
+
+    # Confirm leaders can read requests
     assert p_charm.lb_consumers.all_requests[0].backends == [
         "192.168.0.5",
         "192.168.0.3",
     ]
     assert p_charm.changes == {"foo": 1}
 
+    # Confirm non-leaders cannot read requests
+    provider.set_leader(False)
+    assert len(p_charm.lb_consumers.all_requests) == 0
+
+    # Confirm non-leaders can see requests with read permission
+    p_charm.lb_consumers.follower_perms(read=True)
+    assert len(p_charm.lb_consumers.all_requests) == 1
+
+    # Confirm non-leaders cannot see requests without read permission
+    p_charm.lb_consumers.follower_perms(read=False)
+    assert len(p_charm.lb_consumers.all_requests) == 0
+
     # Test receiving the response
+    provider.set_leader(True)
     assert not c_charm.active_lbs
     assert not c_charm.failed_lbs
     transmit_rel_data(provider, consumer)
