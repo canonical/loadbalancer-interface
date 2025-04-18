@@ -33,7 +33,7 @@ SETUP = {
     "install_requires": [
         "ops>=1.0.0",
         "cached_property",
-        "marshmallow",
+        "marshmallow<4.0.0",
         "marshmallow-enum",
         "ops_reactive_interface",
     ],
