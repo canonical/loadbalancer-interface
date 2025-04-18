@@ -4,7 +4,7 @@ from shutil import rmtree
 
 SETUP = {
     "name": "loadbalancer_interface",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "author": "Cory Johns",
     "author_email": "cory.johns@canonical.com",
     "url": "https://github.com/juju-solutions/loadbalancer-interface",
@@ -33,7 +33,7 @@ SETUP = {
     "install_requires": [
         "ops>=1.0.0",
         "cached_property",
-        "marshmallow",
+        "marshmallow<4.0.0",
         "marshmallow-enum",
         "ops_reactive_interface",
     ],
