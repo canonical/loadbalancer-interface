@@ -1,0 +1,14 @@
+name: cla-check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release-[0-9]+.[0-9]+'
+      
+jobs:
+  cla-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if CLA signed
+        uses: canonical/has-signed-canonical-cla@v2

@@ -7,7 +7,7 @@ SETUP = {
     "version": "1.2.1",
     "author": "Cory Johns",
     "author_email": "cory.johns@canonical.com",
-    "url": "https://github.com/juju-solutions/loadbalancer-interface",
+    "url": "https://github.com/canonical/loadbalancer-interface",
     "packages": [
         "loadbalancer_interface",
         "loadbalancer_interface.schemas",

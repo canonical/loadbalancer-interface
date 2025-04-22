@@ -80,9 +80,9 @@ async def test_build_and_deploy(ops_test, lb_charms):
 
 [Operator Framework]: https://github.com/canonical/operator/
 [charms.reactive Framework]: https://charmsreactive.readthedocs.io/
-[requires-operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/requires-operator/
-[requires-reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/requires-reactive/
-[provides-operator]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/provides-operator/
-[provides-reactive]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples/provides-reactive/
-[API docs]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/docs/api.md
-[example charms]: https://github.com/juju-solutions/loadbalancer-interface/blob/master/examples
+[requires-operator]: https://github.com/canonical/loadbalancer-interface/blob/master/examples/requires-operator/
+[requires-reactive]: https://github.com/canonical/loadbalancer-interface/blob/master/examples/requires-reactive/
+[provides-operator]: https://github.com/canonical/loadbalancer-interface/blob/master/examples/provides-operator/
+[provides-reactive]: https://github.com/canonical/loadbalancer-interface/blob/master/examples/provides-reactive/
+[API docs]: https://github.com/canonical/loadbalancer-interface/blob/master/docs/api.md
+[example charms]: https://github.com/canonical/loadbalancer-interface/blob/master/examples
