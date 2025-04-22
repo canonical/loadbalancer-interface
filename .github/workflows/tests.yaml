@@ -6,29 +6,30 @@ on:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: "3.8"
     - name: Install Tox
       run: pip install tox
     - name: Run lint
       run: tox -e lint
+
   unit-and-func-tests:
     name: Unit, & Functional Tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        python: ['3.8', '3.9', '3.10', '3.11']
+        python: ['3.8', '3.10', '3.12']
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python }}
     - name: Install Tox
@@ -42,10 +43,10 @@ jobs:
     timeout-minutes: 40
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
 
@@ -56,7 +57,9 @@ jobs:
       uses: charmed-kubernetes/actions-operator@main
       with:
         provider: lxd
-        juju-channel: 3.1/stable
+        charm-channel: 3.x/stable
+        charmcraft-channel: 2.x/stable
+        juju-channel: 3/stable
 
     - name: Configure LXC for Charmcraft
       run: |
@@ -71,7 +74,7 @@ jobs:
     - name: Setup Debug Artifact Collection
       if: ${{ failure() }}
       run: mkdir tmp
-    
+
     - name: Collect Charmcraft Logs
       if: ${{ failure() }}
       run: |
@@ -86,7 +89,7 @@ jobs:
 
     - name: Upload debug artifacts
       if: ${{ failure() }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: test-run-artifacts
         path: tmp
