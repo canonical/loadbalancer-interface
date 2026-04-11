@@ -64,6 +64,6 @@ class SchemaWrapper:
     @property
     def hash(self):
         try:
-            return md5(self.dumps().encode("utf8")).hexdigest()
+            return md5(self.dumps().encode("utf8")).hexdigest()  # nosec B324
         except ValidationError:
             return None
